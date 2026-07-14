@@ -1,0 +1,31 @@
+model Model
+	culture: en-IN
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-IN
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_QueryOrder = ["_Measures","customer_360","customer_segmentation","executive_kpi","executive_summary","metadata_catalog","product_performance","monthly_sales","sales_forecasting_base","sales_dashboard","territory_performance"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table customer_360
+ref table customer_segmentation
+ref table executive_kpi
+ref table executive_summary
+ref table metadata_catalog
+ref table product_performance
+ref table monthly_sales
+ref table sales_forecasting_base
+ref table DateTableTemplate_6d9b8cb4-0b11-4084-83c2-e17e0b7c757b
+ref table LocalDateTable_a681f6b9-1e6a-437b-8844-07ff9cfe0370
+ref table sales_dashboard
+ref table LocalDateTable_c110a7fb-6cab-4e1c-a2e4-71b41c04add9
+ref table territory_performance
+ref table _Measures
+
+ref cultureInfo en-IN
+

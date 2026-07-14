@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.10.0/schema.json",
+  "name": "chart_customer_segmentation",
+  "position": {
+    "x": 798,
+    "y": 378,
+    "z": 10,
+    "height": 210,
+    "width": 264,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "donutChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "customer_segmentation"
+                    }
+                  },
+                  "Property": "Segment"
+                }
+              },
+              "queryRef": "customer_segmentation.Segment",
+              "nativeQueryRef": "Segment",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "customer_segmentation"
+                    }
+                  },
+                  "Property": "CustomerCount"
+                }
+              },
+              "queryRef": "customer_segmentation.CustomerCount",
+              "nativeQueryRef": "CustomerCount"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

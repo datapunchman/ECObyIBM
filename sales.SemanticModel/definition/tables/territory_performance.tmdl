@@ -1,0 +1,116 @@
+table territory_performance
+	lineageTag: 1ac1045e-ec7b-47df-b92a-09307f6a8e23
+
+	column Country
+		dataType: string
+		displayFolder: Geography
+		lineageTag: ea1c7872-d502-485d-87f6-212e4743782b
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: Country
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Country associated with this territory."
+
+	column Region
+		dataType: string
+		displayFolder: Geography
+		lineageTag: 0c8707b5-7b8a-4aad-8726-5d1265d9004e
+		dataCategory: StateOrProvince
+		summarizeBy: none
+		sourceColumn: Region
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Sales region name. Primary dimension key; joins to sales_dashboard and customer_360 tables."
+
+	column TerritoryGroup
+		dataType: string
+		displayFolder: Geography
+		lineageTag: bdc16e52-931d-44ad-bbad-6ef864aaf8c0
+		dataCategory: Continent
+		summarizeBy: none
+		sourceColumn: TerritoryGroup
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "High-level territory grouping (e.g. North America, Europe, Pacific)."
+
+	column TotalRevenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Territory Performance
+		lineageTag: 4d776fa2-def1-455d-b5ea-157ed84eb195
+		summarizeBy: none
+		sourceColumn: TotalRevenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total revenue generated in this territory. Pre-aggregated; use measures for period-filtered analysis."
+
+	column TotalProfit
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Territory Performance
+		lineageTag: 950e6e8d-bbc4-465d-b843-3f5a269ca918
+		summarizeBy: none
+		sourceColumn: TotalProfit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total gross profit generated in this territory. Pre-aggregated; use measures for dynamic analysis."
+
+	column CustomerCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Territory Performance
+		lineageTag: d2b73c86-c707-4006-9aa3-4826fa881058
+		summarizeBy: none
+		sourceColumn: CustomerCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total number of customers in this territory."
+
+	column AvgRevenuePerCustomer
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Territory Performance
+		lineageTag: e634714c-143d-4754-b599-945d3d8669e1
+		summarizeBy: none
+		sourceColumn: AvgRevenuePerCustomer
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Average revenue per customer in this territory. Use for territory efficiency benchmarking."
+
+	column TopTerritory
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		displayFolder: Territory Performance
+		lineageTag: e3944f6a-2602-426a-bf00-a5751dc5cc9d
+		summarizeBy: none
+		sourceColumn: TopTerritory
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Flag indicating whether this territory is a top-performing territory (TRUE) based on revenue thresholds."
+
+	partition territory_performance = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    territory_performance_Table = gold_Schema{[Name="territory_performance",Kind="Table"]}[Data]
+				in
+				    territory_performance_Table
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Territory dimension and performance summary table. One row per region with aggregated revenue, profit, customer count, and territory classification metrics."
+

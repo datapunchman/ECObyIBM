@@ -1,0 +1,156 @@
+table monthly_sales
+	lineageTag: 71e51f24-7b10-42ec-b3e2-dc34dcad90a8
+
+	column Year
+		dataType: int64
+		formatString: 0
+		displayFolder: Date
+		lineageTag: 242b053c-d13e-4457-bccd-96df97792fa8
+		dataCategory: Years
+		summarizeBy: none
+		sourceColumn: Year
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar year of the month period (e.g. 2023, 2024)."
+
+	column Quarter
+		dataType: int64
+		formatString: 0
+		displayFolder: Date
+		lineageTag: e4406198-9d23-4e38-9d09-7b33bffc6a4e
+		dataCategory: QuarterOfYear
+		summarizeBy: none
+		sourceColumn: Quarter
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar quarter number (1-4) for this month period."
+
+	column MonthNumberOfYear
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: Date
+		lineageTag: 8a33f700-eaee-4509-a7cf-3920dbc30efa
+		dataCategory: MonthOfYear
+		summarizeBy: none
+		sourceColumn: MonthNumberOfYear
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar month number (1-12). Sort key for MonthName. Hidden from reports."
+
+	column MonthName
+		dataType: string
+		displayFolder: Date
+		lineageTag: 3196cf08-432f-4e73-a9a8-2e95b2f7861e
+		dataCategory: Months
+		summarizeBy: none
+		sourceColumn: MonthName
+		sortByColumn: MonthNumberOfYear
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Full month name (e.g. January, February). Sorted by MonthNumberOfYear for correct calendar order."
+
+	column YearMonth
+		dataType: string
+		displayFolder: Date
+		lineageTag: 8c96eb64-aa98-4f2b-9998-8a330defac98
+		summarizeBy: none
+		sourceColumn: YearMonth
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Year-Month period key in YYYY-MM format. Primary join key to sales_dashboard and sales_forecasting_base."
+
+	column Revenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Monthly Metrics
+		lineageTag: d91db657-73df-4c0f-b615-98eb4e50b7e5
+		summarizeBy: sum
+		sourceColumn: Revenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total revenue for the month across all orders, customers, and products."
+
+	column Profit
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Monthly Metrics
+		lineageTag: ae359c32-29bc-4162-8deb-cd62245f271e
+		summarizeBy: sum
+		sourceColumn: Profit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total gross profit for the month."
+
+	column ProfitMargin
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Monthly Metrics
+		lineageTag: 33a52a1b-2628-4b64-a2f6-283f5b505381
+		summarizeBy: none
+		sourceColumn: ProfitMargin
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Gross profit margin % for the month. Do not sum; use the [Profit Margin %] measure for dynamic calculations."
+
+	column OrderCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Monthly Metrics
+		lineageTag: 905410fb-6c7a-4433-9f2b-ea51165dacd2
+		summarizeBy: sum
+		sourceColumn: OrderCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total number of orders placed during the month."
+
+	column CustomerCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Monthly Metrics
+		lineageTag: 839cfac0-f9d4-4f86-bf92-03103e0962d3
+		summarizeBy: sum
+		sourceColumn: CustomerCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Number of distinct customers who placed orders during the month."
+
+	column ProductCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Monthly Metrics
+		lineageTag: 02ea9396-6b7d-4055-8a04-dac48bf6ea50
+		summarizeBy: sum
+		sourceColumn: ProductCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Number of distinct products sold during the month."
+
+	partition monthly_sales = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    monthly_sales_Table = gold_Schema{[Name="monthly_sales",Kind="Table"]}[Data]
+				in
+				    monthly_sales_Table
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Monthly aggregate sales table. One row per calendar month with pre-aggregated revenue, profit, order counts, and customer/product counts."
+
+	annotation __PBI_MarkAsDateTable = 'YearMonth'
+

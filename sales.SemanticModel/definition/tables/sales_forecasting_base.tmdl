@@ -1,0 +1,114 @@
+table sales_forecasting_base
+	lineageTag: 898e90f1-8e08-47c1-a059-43ab45ac65c6
+
+	column Date
+		dataType: dateTime
+		formatString: Short Date
+		displayFolder: Date
+		lineageTag: 7b59d5b7-9256-4cda-a85d-66878162d6a8
+		dataCategory: PaddedDateTableDates
+		summarizeBy: none
+		sourceColumn: Date
+
+		variation Variation
+			isDefault
+			relationship: e98453dc-60fd-4a66-a112-56b21a3a8ab7
+			defaultHierarchy: LocalDateTable_a681f6b9-1e6a-437b-8844-07ff9cfe0370.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation Description = "Calendar date of the record. Use for time-series and forecasting analysis."
+
+	column Year
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: Date
+		lineageTag: 229ba614-b054-42a6-b660-4dbfcd7223ec
+		dataCategory: Years
+		summarizeBy: none
+		sourceColumn: Year
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar year of the record date. Hidden; use the Date hierarchy for year-level navigation."
+
+	column Month
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: Date
+		lineageTag: 7a46ea21-749f-4e44-97c4-29fdf8cf7515
+		dataCategory: MonthOfYear
+		summarizeBy: none
+		sourceColumn: Month
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Month number (1-12) of the record date. Hidden; used internally for period calculations."
+
+	column YearMonth
+		dataType: string
+		isHidden
+		displayFolder: _Keys
+		lineageTag: 26392b32-ce6f-457a-8c43-a57108faa059
+		summarizeBy: none
+		sourceColumn: YearMonth
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Year-Month surrogate key used to join with monthly_sales. Hidden from report authors."
+
+	column Revenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Actuals
+		lineageTag: 5662e6a5-044f-4961-860e-e2bb38985a82
+		summarizeBy: sum
+		sourceColumn: Revenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Actual revenue for this date. Used as the base series for forecasting models and trend analysis."
+
+	column Profit
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Actuals
+		lineageTag: 39549f3b-f456-4108-a94f-17043b46625b
+		summarizeBy: sum
+		sourceColumn: Profit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Actual gross profit for this date."
+
+	column OrderCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Actuals
+		lineageTag: c3427099-6a5a-4db9-8f76-fe9c8cc46685
+		summarizeBy: sum
+		sourceColumn: OrderCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Number of orders placed on this date."
+
+	partition sales_forecasting_base = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    sales_forecasting_base_Table = gold_Schema{[Name="sales_forecasting_base",Kind="Table"]}[Data]
+				in
+				    sales_forecasting_base_Table
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Daily-grain sales base table used for forecasting. Contains actual revenue and profit per day with date hierarchy support. Source table for forecast and trend DAX measures."
+

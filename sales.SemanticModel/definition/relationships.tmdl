@@ -1,0 +1,41 @@
+relationship e98453dc-60fd-4a66-a112-56b21a3a8ab7
+	joinOnDateBehavior: datePartOnly
+	fromColumn: sales_forecasting_base.Date
+	toColumn: LocalDateTable_a681f6b9-1e6a-437b-8844-07ff9cfe0370.Date
+
+relationship 4054417f-859d-4bcd-a4c0-31bd02dfb52b
+	joinOnDateBehavior: datePartOnly
+	fromColumn: sales_dashboard.OrderDate
+	toColumn: LocalDateTable_c110a7fb-6cab-4e1c-a2e4-71b41c04add9.Date
+
+relationship AutoDetected_d8eba209-5ba5-4c73-a817-15ef41133041
+	fromColumn: sales_dashboard.CustomerID
+	toColumn: customer_360.CustomerID
+
+relationship AutoDetected_97d90de1-6434-4d07-8a34-0771da5b3d69
+	fromColumn: customer_360.Region
+	toColumn: territory_performance.Region
+
+relationship AutoDetected_537980c9-389a-46bd-9dc2-2caf43fe74f2
+	isActive: false
+	fromColumn: sales_dashboard.Region
+	toColumn: territory_performance.Region
+
+relationship AutoDetected_dcff0c3b-fae2-4707-9d44-cc829616699b
+	crossFilteringBehavior: bothDirections
+	fromCardinality: one
+	fromColumn: executive_summary.TotalRevenue
+	toColumn: executive_kpi.TotalRevenue
+
+relationship AutoDetected_0193ccd4-c3c9-4f99-a7bc-679ebcd12425
+	fromColumn: sales_dashboard.ProductID
+	toColumn: product_performance.ProductID
+
+relationship AutoDetected_f991a3c6-0c91-4274-b220-bc260ef2c5d8
+	fromColumn: sales_forecasting_base.YearMonth
+	toColumn: monthly_sales.YearMonth
+
+relationship AutoDetected_efecd823-9d6c-4555-a01a-c1a77c331ee6
+	fromColumn: sales_dashboard.YearMonth
+	toColumn: monthly_sales.YearMonth
+

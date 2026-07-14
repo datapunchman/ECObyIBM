@@ -1,0 +1,110 @@
+table executive_summary
+	lineageTag: 7ea0fff0-3bb6-4b38-be12-65365621e272
+
+	column TotalRevenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Summary KPIs
+		lineageTag: 6c088cc3-469a-49d0-8185-60ed6095fef0
+		summarizeBy: none
+		sourceColumn: TotalRevenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total revenue for the summary period."
+
+	column TotalProfit
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Summary KPIs
+		lineageTag: 3e3ad74a-37c7-4a87-a5d9-0cb20f0ae386
+		summarizeBy: sum
+		sourceColumn: TotalProfit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total gross profit for the summary period."
+
+	column CustomerCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Summary KPIs
+		lineageTag: 3480295e-b058-42ed-b7d8-90d798290f65
+		summarizeBy: sum
+		sourceColumn: CustomerCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total distinct customer count for the summary period."
+
+	column ProductCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Summary KPIs
+		lineageTag: ea82da07-a068-44e7-9d4b-abee9527e17c
+		summarizeBy: sum
+		sourceColumn: ProductCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total distinct product count for the summary period."
+
+	column TopTerritory
+		dataType: string
+		displayFolder: Highlights
+		lineageTag: a8374ebb-b2c4-49e9-9940-a5056f83f5dc
+		summarizeBy: none
+		sourceColumn: TopTerritory
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the top-performing territory by revenue for the summary period."
+
+	column TopProduct
+		dataType: string
+		displayFolder: Highlights
+		lineageTag: cec9b775-8ef5-4143-a46f-93a15fc9d6b9
+		summarizeBy: none
+		sourceColumn: TopProduct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the top-performing product by revenue for the summary period."
+
+	column HighestRevenueMonth
+		dataType: string
+		displayFolder: Highlights
+		lineageTag: 95b88ab6-897c-4db6-945c-28a36ce5909c
+		summarizeBy: none
+		sourceColumn: HighestRevenueMonth
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar month that generated the highest revenue in the summary period."
+
+	column HighestRevenueQuarter
+		dataType: string
+		displayFolder: Highlights
+		lineageTag: 53ec6d30-f0e3-4440-9a96-26fd393bfe14
+		summarizeBy: none
+		sourceColumn: HighestRevenueQuarter
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar quarter that generated the highest revenue in the summary period."
+
+	partition executive_summary = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    executive_summary_Table = gold_Schema{[Name="executive_summary",Kind="Table"]}[Data]
+				in
+				    executive_summary_Table
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Narrative executive summary table providing top-line KPI totals and text-based highlights for the period. Designed for one-page executive scorecards."
+

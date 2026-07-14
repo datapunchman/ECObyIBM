@@ -1,0 +1,136 @@
+table executive_kpi
+	lineageTag: 5c82dd7a-3678-41d6-a5b5-3f10ea9afa29
+
+	column TotalRevenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Revenue KPIs
+		lineageTag: 10be1fb2-925a-44f3-972b-5c176bda0963
+		summarizeBy: none
+		sourceColumn: TotalRevenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total revenue across the entire reporting period. Pre-aggregated KPI value; use [Total Revenue] measure for filtered analysis."
+
+	column TotalProfit
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Revenue KPIs
+		lineageTag: 47702072-2560-47c0-b18b-72da46730f71
+		summarizeBy: sum
+		sourceColumn: TotalProfit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total gross profit across the entire reporting period."
+
+	column ProfitMargin
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Revenue KPIs
+		lineageTag: e5a551d6-afbf-45f9-a08d-a76e221995b0
+		summarizeBy: none
+		sourceColumn: ProfitMargin
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Overall gross profit margin % (TotalProfit divided by TotalRevenue). Use the [Profit Margin %] measure for dynamic analysis."
+
+	column TotalCustomers
+		dataType: int64
+		formatString: #,0
+		displayFolder: Customer KPIs
+		lineageTag: e0f34e02-d5c5-421a-99b7-ac9f4f9b571c
+		summarizeBy: sum
+		sourceColumn: TotalCustomers
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total number of distinct customers in the reporting period."
+
+	column TotalProducts
+		dataType: int64
+		formatString: #,0
+		displayFolder: Product KPIs
+		lineageTag: 13d577c6-5895-423e-8494-e81fb12c1bf1
+		summarizeBy: sum
+		sourceColumn: TotalProducts
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total number of distinct products sold in the reporting period."
+
+	column TotalOrders
+		dataType: int64
+		formatString: #,0
+		displayFolder: Order KPIs
+		lineageTag: 586932eb-9e72-4d08-a3a7-066930c4e220
+		summarizeBy: sum
+		sourceColumn: TotalOrders
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total number of orders placed in the reporting period."
+
+	column AvgOrderValue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Order KPIs
+		lineageTag: b20193a6-7b3a-4af7-a76a-1270d2374230
+		summarizeBy: none
+		sourceColumn: AvgOrderValue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Average order value (TotalRevenue divided by TotalOrders). Pre-calculated; do not aggregate directly."
+
+	column AvgCustomerRevenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Customer KPIs
+		lineageTag: 0a2c7e89-40f7-4521-9f6c-ca9a7505497a
+		summarizeBy: none
+		sourceColumn: AvgCustomerRevenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Average revenue per customer (TotalRevenue divided by TotalCustomers). Pre-calculated; do not aggregate directly."
+
+	column HighestRevenueTerritory
+		dataType: string
+		displayFolder: Rankings
+		lineageTag: 29896cef-2b83-4a1e-83a2-2b58b94a1a70
+		summarizeBy: none
+		sourceColumn: HighestRevenueTerritory
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the territory that generated the highest total revenue in the reporting period."
+
+	column HighestRevenueProduct
+		dataType: string
+		displayFolder: Rankings
+		lineageTag: 7ae469da-2799-4cd0-8db0-f93c137ab30c
+		summarizeBy: none
+		sourceColumn: HighestRevenueProduct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the product that generated the highest total revenue in the reporting period."
+
+	partition executive_kpi = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    executive_kpi_Table = gold_Schema{[Name="executive_kpi",Kind="Table"]}[Data]
+				in
+				    executive_kpi_Table
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Executive KPI snapshot table providing top-line business metrics in a single-row summary format. Designed for KPI cards and executive dashboard tiles."
+

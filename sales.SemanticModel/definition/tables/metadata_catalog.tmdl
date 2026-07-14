@@ -1,0 +1,118 @@
+table metadata_catalog
+	lineageTag: 31bb52c9-effb-4e63-bc24-20b9c7009fcd
+
+	column TableName
+		dataType: string
+		displayFolder: Catalog
+		lineageTag: 279e5ce3-0fbe-481f-a5c0-1018f00c3fb0
+		summarizeBy: none
+		sourceColumn: TableName
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the Gold layer table documented in this row."
+
+	column BusinessDomain
+		dataType: string
+		displayFolder: Catalog
+		lineageTag: 238018ed-89d3-414d-a1ed-1537e5ec4a4e
+		summarizeBy: none
+		sourceColumn: BusinessDomain
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Business domain this table belongs to (e.g. Sales, Customer, Product, Finance)."
+
+	column PrimaryKey
+		dataType: string
+		displayFolder: Technical Metadata
+		lineageTag: 0a764e51-ddc7-4b36-9acd-0219ab2ebd54
+		summarizeBy: none
+		sourceColumn: PrimaryKey
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the primary key column in the Gold table."
+
+	column RecordCount
+		dataType: int64
+		formatString: #,0
+		displayFolder: Technical Metadata
+		lineageTag: b7310bb5-5fa3-41a2-906c-778214e62e37
+		summarizeBy: sum
+		sourceColumn: RecordCount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Approximate row count of the Gold table as of the last refresh."
+
+	column RefreshTimestamp
+		dataType: string
+		displayFolder: Technical Metadata
+		lineageTag: 7a4b39e8-894a-4c2f-9007-4e6fa4fed210
+		summarizeBy: none
+		sourceColumn: RefreshTimestamp
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Timestamp of the most recent data refresh for this table."
+
+	column SourceTables
+		dataType: string
+		displayFolder: Technical Metadata
+		lineageTag: a6bcd928-7fdb-42f2-bb0c-5b8f3a906091
+		summarizeBy: none
+		sourceColumn: SourceTables
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Comma-separated list of upstream Bronze/Silver source tables used to populate this Gold table."
+
+	column BusinessDescription
+		dataType: string
+		displayFolder: Catalog
+		lineageTag: e65d64e0-1522-4dea-82fa-f17eff3a5570
+		summarizeBy: none
+		sourceColumn: BusinessDescription
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Plain-language business description of the table purpose, grain, and key use cases."
+
+	column Owner
+		dataType: string
+		displayFolder: Catalog
+		lineageTag: dfdd37d3-62cd-427b-909d-4365442b03a4
+		summarizeBy: none
+		sourceColumn: Owner
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name or team responsible for the data quality and maintenance of this table."
+
+	column DataClassification
+		dataType: string
+		displayFolder: Catalog
+		lineageTag: ee160e4e-1a94-4e40-98fb-e3369825c65b
+		summarizeBy: none
+		sourceColumn: DataClassification
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Data sensitivity classification (e.g. Public, Internal, Confidential, Restricted)."
+
+	partition metadata_catalog = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    metadata_catalog_Table = gold_Schema{[Name="metadata_catalog",Kind="Table"]}[Data]
+				in
+				    metadata_catalog_Table
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Data governance metadata catalog. Documents each Gold layer table with business descriptions, ownership, data classification, and lineage."
+

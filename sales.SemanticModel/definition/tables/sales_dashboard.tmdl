@@ -1,0 +1,255 @@
+table sales_dashboard
+	lineageTag: efb55fe3-06d4-49ec-993f-2b0824274dc9
+
+	column OrderNumber
+		dataType: string
+		displayFolder: Order Details
+		lineageTag: 1898f125-30d9-4764-a131-2f9333b00069
+		summarizeBy: none
+		sourceColumn: OrderNumber
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Unique identifier for each sales order. Use to count distinct orders or trace individual transactions."
+
+	column CustomerID
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: _Keys
+		lineageTag: f5ba52b0-87ea-4463-8050-cc544ec3467f
+		summarizeBy: none
+		sourceColumn: CustomerID
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Foreign key linking to customer_360. Hidden from report authors; use CustomerName for display."
+
+	column CustomerName
+		dataType: string
+		displayFolder: Order Details
+		lineageTag: 4c028478-db3b-46c4-abe7-cfd3a9a6dab2
+		summarizeBy: none
+		sourceColumn: CustomerName
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Full name of the customer who placed the order."
+
+	column ProductID
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: _Keys
+		lineageTag: ca5833ba-3332-46b2-9196-4103adc2dc47
+		summarizeBy: none
+		sourceColumn: ProductID
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Foreign key linking to product_performance. Hidden from report authors; use ProductName for display."
+
+	column ProductName
+		dataType: string
+		displayFolder: Order Details
+		lineageTag: 124a5fa7-2a31-4864-bb1a-6f2f3c3b6a9f
+		summarizeBy: none
+		sourceColumn: ProductName
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Name of the product included in this order line."
+
+	column OrderDate
+		dataType: dateTime
+		formatString: Short Date
+		displayFolder: Date
+		lineageTag: cad8d638-e382-435b-9afd-76320e716ceb
+		dataCategory: PaddedDateTableDates
+		summarizeBy: none
+		sourceColumn: OrderDate
+
+		variation Variation
+			isDefault
+			relationship: 4054417f-859d-4bcd-a4c0-31bd02dfb52b
+			defaultHierarchy: LocalDateTable_c110a7fb-6cab-4e1c-a2e4-71b41c04add9.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation Description = "Date the order was placed. Supports date hierarchy drill-down (Year > Quarter > Month > Day)."
+
+	column Year
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: Date
+		lineageTag: 9973abbd-babc-49da-ab16-309fbae394e1
+		summarizeBy: none
+		sourceColumn: Year
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar year of the order date. Hidden; use the OrderDate hierarchy for time navigation."
+
+	column Quarter
+		dataType: int64
+		isHidden
+		formatString: 0
+		displayFolder: Date
+		lineageTag: b745ee83-bdec-4ccb-963b-15236518dfe6
+		summarizeBy: none
+		sourceColumn: Quarter
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Calendar quarter number (1-4) of the order date. Hidden; use the OrderDate hierarchy for display."
+
+	column Month
+		dataType: string
+		isHidden
+		displayFolder: Date
+		lineageTag: d5de7816-c524-48c1-a7c6-021e2e71e529
+		summarizeBy: none
+		sourceColumn: Month
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Month name of the order date. Hidden; use the OrderDate date hierarchy for month-level analysis."
+
+	column YearMonth
+		dataType: string
+		isHidden
+		displayFolder: _Keys
+		lineageTag: 81e16530-6471-4530-8940-9f3d45c9eaca
+		summarizeBy: none
+		sourceColumn: YearMonth
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Year-Month surrogate key used to join with monthly_sales. Hidden from report authors."
+
+	column Country
+		dataType: string
+		displayFolder: Geography
+		lineageTag: 71227e42-dd03-4432-b7da-f228ac381432
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: Country
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Country where the order was shipped or where the customer is located."
+
+	column Region
+		dataType: string
+		displayFolder: Geography
+		lineageTag: a857c7c6-9323-4ade-aa45-d0a9f8920a2d
+		dataCategory: StateOrProvince
+		summarizeBy: none
+		sourceColumn: Region
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Sales region associated with the order. Joins to territory_performance for regional analysis."
+
+	column Revenue
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Financials
+		lineageTag: c6bf3e72-3e63-4805-bfc4-83c7e179be19
+		summarizeBy: sum
+		sourceColumn: Revenue
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Total revenue (gross sales) for this order line in USD."
+
+	column ProductCost
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Financials
+		lineageTag: db811ccc-f1fb-4703-80ca-090ad4d5fdad
+		summarizeBy: sum
+		sourceColumn: ProductCost
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Cost of goods sold (COGS) for this order line."
+
+	column Profit
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Financials
+		lineageTag: bb4c3ae3-a753-4163-a738-13745b385170
+		summarizeBy: sum
+		sourceColumn: Profit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Gross profit for this order line (Revenue minus ProductCost minus FreightCost)."
+
+	column ProfitMargin
+		dataType: double
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Financials
+		lineageTag: ea873d55-01f1-4e25-aa62-26552a60b7bd
+		summarizeBy: none
+		sourceColumn: ProfitMargin
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Gross profit margin % for this order line. Do not aggregate directly; use the [Profit Margin %] measure instead."
+
+	column FreightCost
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Financials
+		lineageTag: 11e32e74-7cfb-4535-94ca-a87a74cf9dff
+		summarizeBy: sum
+		sourceColumn: FreightCost
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Shipping and freight cost associated with this order line."
+
+	column Tax
+		dataType: double
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Financials
+		lineageTag: 28f0627f-050d-4062-9289-56b904ed964a
+		summarizeBy: sum
+		sourceColumn: Tax
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Tax amount applied to this order line."
+
+	column OrderQuantity
+		dataType: int64
+		formatString: #,0
+		displayFolder: Order Details
+		lineageTag: cf97fe61-3f80-4f84-8919-6cd4ed25da30
+		summarizeBy: sum
+		sourceColumn: OrderQuantity
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation Description = "Number of units ordered on this order line."
+
+	partition sales_dashboard = m
+		mode: import
+		source =
+				let
+				    Source = Databricks.Catalogs("adb-7405617789947075.15.azuredatabricks.net", "/sql/1.0/warehouses/254dfa480af675a0", [Catalog=null, Database=null, QueryTags=null, EnableAutomaticProxyDiscovery=null, Implementation="2.0", Protocol=null]),
+				    databricks_course_ws_Database = Source{[Name="databricks_course_ws",Kind="Database"]}[Data],
+				    gold_Schema = databricks_course_ws_Database{[Name="gold",Kind="Schema"]}[Data],
+				    sales_dashboard_Table = gold_Schema{[Name="sales_dashboard",Kind="Table"]}[Data]
+				in
+				    sales_dashboard_Table
+
+	annotation PBI_ResultType = Table
+
+	annotation Description = "Fact table containing individual sales transactions with order details, revenue, cost, profit, and geographic dimensions. Primary grain is one row per order line."
+

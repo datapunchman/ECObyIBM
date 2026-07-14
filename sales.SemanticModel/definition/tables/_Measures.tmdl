@@ -1,0 +1,801 @@
+table _Measures
+	lineageTag: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+	measure 'Total Revenue' = SUM(sales_dashboard[Revenue])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m001-total-revenue
+
+		annotation Description = "Sum of all order line revenue from the sales_dashboard fact table. Primary top-line revenue KPI."
+
+	measure 'Total Cost' = SUM(sales_dashboard[ProductCost])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m002-total-cost
+
+		annotation Description = "Sum of all product cost (COGS) from the sales_dashboard fact table."
+
+	measure 'Total Profit' = SUM(sales_dashboard[Profit])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m003-total-profit
+
+		annotation Description = "Sum of all gross profit from the sales_dashboard fact table (Revenue minus ProductCost minus FreightCost)."
+
+	measure 'Profit Margin %' =
+			DIVIDE(
+			    [Total Profit],
+			    [Total Revenue],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m004-profit-margin
+
+		annotation Description = "Gross profit margin percentage calculated dynamically as Total Profit divided by Total Revenue. Returns BLANK when revenue is zero."
+
+	measure 'Total Freight Cost' = SUM(sales_dashboard[FreightCost])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m005-total-freight
+
+		annotation Description = "Sum of all freight and shipping costs associated with orders."
+
+	measure 'Total Tax' = SUM(sales_dashboard[Tax])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m006-total-tax
+
+		annotation Description = "Sum of all tax amounts applied to orders."
+
+	measure 'Total Units Sold' = SUM(sales_dashboard[OrderQuantity])
+		formatString: #,0
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m007-total-units
+
+		annotation Description = "Sum of all order quantities (units) from the sales_dashboard fact table."
+
+	measure 'Gross Revenue per Day' =
+			DIVIDE(
+			    [Total Revenue],
+			    DISTINCTCOUNT(sales_dashboard[OrderDate]),
+			    BLANK()
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m008-rev-per-day
+
+		annotation Description = "Average daily revenue (Total Revenue divided by number of distinct order days in context). Useful for normalising across periods of different lengths."
+
+	measure 'Cost Ratio %' =
+			DIVIDE(
+			    [Total Cost],
+			    [Total Revenue],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Sales\Core Sales Measures
+		lineageTag: m009-cost-ratio
+
+		annotation Description = "Product cost as a percentage of total revenue (Total Cost divided by Total Revenue). Measures cost efficiency; lower is better."
+
+	measure 'Total Orders' = DISTINCTCOUNT(sales_dashboard[OrderNumber])
+		formatString: #,0
+		displayFolder: Sales\Order Measures
+		lineageTag: m010-total-orders
+
+		annotation Description = "Count of distinct order numbers from the sales_dashboard fact table."
+
+	measure 'Avg Order Value' =
+			DIVIDE(
+			    [Total Revenue],
+			    [Total Orders],
+			    BLANK()
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Order Measures
+		lineageTag: m011-avg-order-value
+
+		annotation Description = "Average revenue per distinct order (Total Revenue divided by Total Orders). Use to identify trends in basket size."
+
+	measure 'Avg Revenue per Unit' =
+			DIVIDE(
+			    [Total Revenue],
+			    [Total Units Sold],
+			    BLANK()
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Sales\Order Measures
+		lineageTag: m012-avg-rev-unit
+
+		annotation Description = "Average selling price per unit (Total Revenue divided by Total Units Sold)."
+
+	measure 'Total Customers' = DISTINCTCOUNT(sales_dashboard[CustomerID])
+		formatString: #,0
+		displayFolder: Customer\Customer Counts
+		lineageTag: m013-total-customers
+
+		annotation Description = "Count of distinct customers who placed at least one order within the current filter context."
+
+	measure 'New Customers' =
+			COUNTROWS(
+			    FILTER(
+			        VALUES(sales_dashboard[CustomerID]),
+			        CALCULATE(
+			            MIN(sales_dashboard[OrderDate]),
+			            ALLEXCEPT(sales_dashboard, sales_dashboard[CustomerID])
+			        ) >= MIN(sales_dashboard[OrderDate])
+			    )
+			)
+		formatString: #,0
+		displayFolder: Customer\Customer Counts
+		lineageTag: m014-new-customers
+
+		annotation Description = "Count of customers whose first-ever order date falls within the current filter context period. Identifies customer acquisition volume."
+
+	measure 'High Value Customer Count' =
+			CALCULATE(
+			    DISTINCTCOUNT(customer_360[CustomerID]),
+			    customer_360[HighValueCustomer] = TRUE()
+			)
+		formatString: #,0
+		displayFolder: Customer\Customer Counts
+		lineageTag: m015-hv-customers
+
+		annotation Description = "Count of customers flagged as high-value (HighValueCustomer = TRUE) within the current filter context."
+
+	measure 'Avg Revenue per Customer' =
+			DIVIDE(
+			    [Total Revenue],
+			    [Total Customers],
+			    BLANK()
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Customer\Customer Value
+		lineageTag: m016-avg-rev-customer
+
+		annotation Description = "Average revenue per distinct customer in the current filter context (Total Revenue divided by Total Customers)."
+
+	measure 'Avg Orders per Customer' =
+			DIVIDE(
+			    [Total Orders],
+			    [Total Customers],
+			    BLANK()
+			)
+		formatString: #,0.0
+		displayFolder: Customer\Customer Value
+		lineageTag: m017-avg-orders-customer
+
+		annotation Description = "Average number of orders per distinct customer (Total Orders divided by Total Customers). Measures customer purchase frequency."
+
+	measure 'High Value Customer Revenue' =
+			CALCULATE(
+			    [Total Revenue],
+			    customer_360[HighValueCustomer] = TRUE()
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Customer\Customer Value
+		lineageTag: m018-hv-customer-revenue
+
+		annotation Description = "Total revenue from customers classified as high-value. Use alongside [High Value Customer Count] for HVC revenue analysis."
+
+	measure 'Customer Revenue Concentration %' =
+			DIVIDE(
+			    [High Value Customer Revenue],
+			    [Total Revenue],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Customer\Customer Value
+		lineageTag: m019-rev-concentration
+
+		annotation Description = "Percentage of total revenue contributed by high-value customers (High Value Customer Revenue divided by Total Revenue)."
+
+	measure 'Avg Customer Age' =
+			AVERAGEX(
+			    DISTINCT(sales_dashboard[CustomerID]),
+			    CALCULATE(MAX(customer_360[Age]))
+			)
+		formatString: 0.0
+		displayFolder: Customer\Demographics
+		lineageTag: m020-avg-age
+
+		annotation Description = "Average age of customers who placed orders within the current filter context."
+
+	measure 'Customer Retention Rate %' =
+			VAR CurrentCustomers = DISTINCTCOUNT(sales_dashboard[CustomerID])
+			VAR RetainedCustomers =
+			    CALCULATE(
+			        DISTINCTCOUNT(sales_dashboard[CustomerID]),
+			        INTERSECT(
+			            VALUES(sales_dashboard[CustomerID]),
+			            CALCULATETABLE(
+			                VALUES(sales_dashboard[CustomerID]),
+			                SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			            )
+			        )
+			    )
+			RETURN
+			    DIVIDE(RetainedCustomers, CurrentCustomers, BLANK())
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Customer\Customer Retention
+		lineageTag: m021-retention-rate
+
+		annotation Description = "Approximate customer retention rate: percentage of current-period customers who also purchased in the prior year period. Higher is better."
+
+	measure 'Repeat Customer Rate %' =
+			VAR TotalCust = DISTINCTCOUNT(sales_dashboard[CustomerID])
+			VAR RepeatCust =
+			    COUNTROWS(
+			        FILTER(
+			            SUMMARIZE(
+			                sales_dashboard,
+			                sales_dashboard[CustomerID],
+			                "OrderCount", DISTINCTCOUNT(sales_dashboard[OrderNumber])
+			            ),
+			            [OrderCount] > 1
+			        )
+			    )
+			RETURN
+			    DIVIDE(RepeatCust, TotalCust, BLANK())
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Customer\Customer Retention
+		lineageTag: m022-repeat-customer-rate
+
+		annotation Description = "Percentage of customers who placed more than one order in the current filter context. Measures purchase repeat behaviour."
+
+	measure 'Segment Revenue Share %' =
+			DIVIDE(
+			    SUM(customer_segmentation[TotalRevenue]),
+			    CALCULATE(SUM(customer_segmentation[TotalRevenue]), ALL(customer_segmentation[Segment])),
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Customer\Customer Segmentation
+		lineageTag: m023-segment-rev-share
+
+		annotation Description = "Revenue share of the current customer segment vs. total cross-segment revenue. Use in a matrix or pie chart with Segment on rows/legend."
+
+	measure 'Total Products Sold' = DISTINCTCOUNT(sales_dashboard[ProductID])
+		formatString: #,0
+		displayFolder: Product\Product Counts
+		lineageTag: m024-total-products
+
+		annotation Description = "Count of distinct products sold within the current filter context."
+
+	measure 'Product Profit Margin %' =
+			DIVIDE(
+			    [Total Profit],
+			    [Total Revenue],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Product\Product Performance
+		lineageTag: m024b-product-margin
+
+		annotation Description = "Dynamic gross profit margin % for a product in the current filter context. Calculated as Total Profit divided by Total Revenue. Use instead of the pre-aggregated ProductProfitMargin column."
+
+	measure 'Revenue per Unit by Product' =
+			DIVIDE(
+			    [Total Revenue],
+			    [Total Units Sold],
+			    BLANK()
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Product\Product Performance
+		lineageTag: m024c-rev-per-unit-product
+
+		annotation Description = "Average revenue per unit sold for each product in context (Total Revenue divided by Total Units Sold). Useful for pricing analysis."
+
+	measure 'Top Product by Revenue' =
+			CALCULATE(
+			    SELECTEDVALUE(sales_dashboard[ProductName]),
+			    TOPN(
+			        1,
+			        VALUES(sales_dashboard[ProductName]),
+			        [Total Revenue],
+			        DESC
+			    )
+			)
+		displayFolder: Product\Product Rankings
+		lineageTag: m025-top-product
+
+		annotation Description = "Name of the product that generated the highest total revenue in the current filter context. Returns a single text value for KPI cards."
+
+	measure 'Avg Product Profit Margin %' =
+			AVERAGEX(
+			    VALUES(sales_dashboard[ProductID]),
+			    [Profit Margin %]
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Product\Product Performance
+		lineageTag: m026-avg-product-margin
+
+		annotation Description = "Unweighted average of profit margin across all products in the current context. Compare against [Profit Margin %] for margin mix analysis."
+
+	measure 'Revenue from Top 10 Products' =
+			CALCULATE(
+			    [Total Revenue],
+			    TOPN(
+			        10,
+			        VALUES(sales_dashboard[ProductID]),
+			        [Total Revenue],
+			        DESC
+			    )
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Product\Product Performance
+		lineageTag: m027-top10-product-rev
+
+		annotation Description = "Total revenue generated by the top 10 products by revenue. Use alongside [Total Revenue] to calculate top-10 product concentration."
+
+	measure 'Top 10 Product Revenue %' =
+			DIVIDE(
+			    [Revenue from Top 10 Products],
+			    CALCULATE([Total Revenue], ALL(sales_dashboard[ProductID])),
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Product\Product Performance
+		lineageTag: m028-top10-product-pct
+
+		annotation Description = "Percentage of total revenue contributed by the top 10 products. High values indicate product revenue concentration."
+
+	measure 'Top Territory by Revenue' =
+			CALCULATE(
+			    SELECTEDVALUE(sales_dashboard[Region]),
+			    TOPN(
+			        1,
+			        VALUES(sales_dashboard[Region]),
+			        [Total Revenue],
+			        DESC
+			    )
+			)
+		displayFolder: Territory\Territory Rankings
+		lineageTag: m029-top-territory
+
+		annotation Description = "Name of the territory (Region) that generated the highest total revenue in the current filter context."
+
+	measure 'Territory Revenue %' =
+			DIVIDE(
+			    [Total Revenue],
+			    CALCULATE([Total Revenue], ALL(sales_dashboard[Region])),
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Territory\Territory Performance
+		lineageTag: m030-territory-rev-pct
+
+		annotation Description = "Current territory revenue as a percentage of total revenue across all territories. Use in a matrix or map visual to show geographic revenue share."
+
+	measure 'Territory Revenue Rank' =
+			RANKX(
+			    ALL(territory_performance[Region]),
+			    [Total Revenue],
+			    ,
+			    DESC,
+			    DENSE
+			)
+		formatString: 0
+		displayFolder: Territory\Territory Rankings
+		lineageTag: m031-territory-rank
+
+		annotation Description = "Revenue rank of each territory (1 = highest). Use in a table visual to display territory league table."
+
+	measure 'Territory Count' = DISTINCTCOUNT(sales_dashboard[Region])
+		formatString: #,0
+		displayFolder: Territory\Territory Counts
+		lineageTag: m032-territory-count
+
+		annotation Description = "Count of distinct territories (Regions) with at least one order in the current filter context."
+
+	measure 'Revenue from Top 5 Territories' =
+			CALCULATE(
+			    [Total Revenue],
+			    TOPN(
+			        5,
+			        VALUES(sales_dashboard[Region]),
+			        [Total Revenue],
+			        DESC
+			    )
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Territory\Territory Performance
+		lineageTag: m033-top5-territory-rev
+
+		annotation Description = "Total revenue generated by the top 5 territories by revenue."
+
+	measure 'Revenue YTD' =
+			TOTALYTD(
+			    [Total Revenue],
+			    sales_dashboard[OrderDate]
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Year-to-Date
+		lineageTag: m034-revenue-ytd
+
+		annotation Description = "Year-to-date total revenue calculated using TOTALYTD. Requires a date column in filter context."
+
+	measure 'Profit YTD' =
+			TOTALYTD(
+			    [Total Profit],
+			    sales_dashboard[OrderDate]
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Year-to-Date
+		lineageTag: m035-profit-ytd
+
+		annotation Description = "Year-to-date total gross profit."
+
+	measure 'Revenue LY YTD' =
+			CALCULATE(
+			    [Revenue YTD],
+			    SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Year-to-Date
+		lineageTag: m036-rev-ly-ytd
+
+		annotation Description = "Year-to-date revenue for the prior year up to the same point in the year. Enables like-for-like YTD comparison."
+
+	measure 'Revenue YTD vs PYTD %' =
+			DIVIDE(
+			    [Revenue YTD] - [Revenue LY YTD],
+			    [Revenue LY YTD],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-to-Date
+		lineageTag: m037-ytd-vs-pytd
+
+		annotation Description = "Year-to-date revenue growth vs. prior-year YTD (Revenue YTD divided by Revenue LY YTD minus 1). The most accurate like-for-like YTD comparison."
+
+	measure 'Revenue QTD' =
+			TOTALQTD(
+			    [Total Revenue],
+			    sales_dashboard[OrderDate]
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Quarter-to-Date
+		lineageTag: m038-revenue-qtd
+
+		annotation Description = "Quarter-to-date total revenue using TOTALQTD. Resets at the start of each fiscal quarter."
+
+	measure 'Revenue MTD' =
+			TOTALMTD(
+			    [Total Revenue],
+			    sales_dashboard[OrderDate]
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Month-to-Date
+		lineageTag: m039-revenue-mtd
+
+		annotation Description = "Month-to-date total revenue using TOTALMTD. Resets at the start of each calendar month."
+
+	measure 'Revenue PY' =
+			CALCULATE(
+			    [Total Revenue],
+			    SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Prior Year
+		lineageTag: m040-revenue-py
+
+		annotation Description = "Total revenue for the same period in the prior year using SAMEPERIODLASTYEAR. Use alongside [Total Revenue] and [Revenue YoY %] for year-over-year comparisons."
+
+	measure 'Profit PY' =
+			CALCULATE(
+			    [Total Profit],
+			    SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Prior Year
+		lineageTag: m041-profit-py
+
+		annotation Description = "Total gross profit for the same period in the prior year."
+
+	measure 'Revenue PYTD' =
+			CALCULATE(
+			    TOTALYTD([Total Revenue], sales_dashboard[OrderDate]),
+			    SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Prior Year
+		lineageTag: m042-revenue-pytd
+
+		annotation Description = "Prior-year year-to-date revenue — revenue for the prior year up to the same day of the year as the current latest date in context."
+
+	measure 'Revenue YoY Variance' = [Total Revenue] - [Revenue PY]
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m043-revenue-yoy-var
+
+		annotation Description = "Absolute revenue variance vs. the same period last year (Total Revenue minus Revenue PY). Positive = growth, Negative = decline."
+
+	measure 'Revenue YoY %' =
+			DIVIDE(
+			    [Revenue YoY Variance],
+			    [Revenue PY],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m044-revenue-yoy-pct
+
+		annotation Description = "Year-over-year revenue growth rate. Returns BLANK when prior year revenue is zero or BLANK."
+
+	measure 'Profit YoY %' =
+			DIVIDE(
+			    [Total Profit] - [Profit PY],
+			    [Profit PY],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m045-profit-yoy-pct
+
+		annotation Description = "Year-over-year profit growth rate. Returns BLANK when prior year profit is zero or BLANK."
+
+	measure 'Profit Margin YoY Variance' =
+			VAR CurrentMargin = [Profit Margin %]
+			VAR PriorMargin =
+			    CALCULATE(
+			        [Profit Margin %],
+			        SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			    )
+			RETURN
+			    CurrentMargin - PriorMargin
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m046-margin-yoy-var
+
+		annotation Description = "Absolute change in profit margin percentage vs. the same period last year. Positive = margin expanding, Negative = margin compressing."
+
+	measure 'Orders YoY %' =
+			VAR CurrentOrders = [Total Orders]
+			VAR PriorOrders =
+			    CALCULATE(
+			        [Total Orders],
+			        SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			    )
+			RETURN
+			    DIVIDE(CurrentOrders - PriorOrders, PriorOrders, BLANK())
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m047-orders-yoy-pct
+
+		annotation Description = "Year-over-year change in total order count. Positive = more orders vs. prior year period."
+
+	measure 'Customers YoY %' =
+			VAR CurrentCust = [Total Customers]
+			VAR PriorCust =
+			    CALCULATE(
+			        [Total Customers],
+			        SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			    )
+			RETURN
+			    DIVIDE(CurrentCust - PriorCust, PriorCust, BLANK())
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m048-customers-yoy-pct
+
+		annotation Description = "Year-over-year change in distinct customer count. Positive = customer base is growing year on year."
+
+	measure 'Revenue per Order YoY %' =
+			VAR CurrentAOV = [Avg Order Value]
+			VAR PriorAOV =
+			    CALCULATE(
+			        [Avg Order Value],
+			        SAMEPERIODLASTYEAR(sales_dashboard[OrderDate])
+			    )
+			RETURN
+			    DIVIDE(CurrentAOV - PriorAOV, PriorAOV, BLANK())
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Year-over-Year
+		lineageTag: m049-rev-order-yoy
+
+		annotation Description = "Year-over-year change in average order value. Positive = customers are spending more per order year on year."
+
+	measure 'MoM Revenue Variance' =
+			[Total Revenue]
+			    - CALCULATE(
+			        [Total Revenue],
+			        DATEADD(sales_dashboard[OrderDate], -1, MONTH)
+			    )
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Month-over-Month
+		lineageTag: m050-mom-revenue-var
+
+		annotation Description = "Absolute revenue variance vs. the prior calendar month."
+
+	measure 'MoM Revenue %' =
+			DIVIDE(
+			    [MoM Revenue Variance],
+			    CALCULATE(
+			        [Total Revenue],
+			        DATEADD(sales_dashboard[OrderDate], -1, MONTH)
+			    ),
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Time Intelligence\Month-over-Month
+		lineageTag: m051-mom-revenue-pct
+
+		annotation Description = "Month-over-month revenue growth rate. Positive = growth vs prior month, Negative = decline."
+
+	measure 'Revenue Rolling 3M' =
+			CALCULATE(
+			    [Total Revenue],
+			    DATESINPERIOD(
+			        sales_dashboard[OrderDate],
+			        LASTDATE(sales_dashboard[OrderDate]),
+			        -3,
+			        MONTH
+			    )
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Rolling Periods
+		lineageTag: m052-rev-rolling-3m
+
+		annotation Description = "Total revenue for the most recent 3-month rolling window ending on the last date in the current filter context."
+
+	measure 'Revenue Rolling 12M' =
+			CALCULATE(
+			    [Total Revenue],
+			    DATESINPERIOD(
+			        sales_dashboard[OrderDate],
+			        LASTDATE(sales_dashboard[OrderDate]),
+			        -12,
+			        MONTH
+			    )
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Time Intelligence\Rolling Periods
+		lineageTag: m053-rev-rolling-12m
+
+		annotation Description = "Total revenue for the most recent 12-month rolling window (trailing twelve months). Smooths seasonality for trend analysis."
+
+	measure 'Revenue Forecast 3M' =
+			VAR AvgLast3M =
+			    AVERAGEX(
+			        DATESINPERIOD(
+			            sales_forecasting_base[Date],
+			            LASTDATE(sales_forecasting_base[Date]),
+			            -3,
+			            MONTH
+			        ),
+			        sales_forecasting_base[Revenue]
+			    )
+			RETURN
+			    AvgLast3M * 3
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Forecasting\Revenue Forecast
+		lineageTag: m054-forecast-3m
+
+		annotation Description = "Simple 3-month forward revenue forecast based on the trailing 3-month average run-rate from the sales_forecasting_base table."
+
+	measure 'Revenue Forecast 6M' =
+			VAR AvgLast6M =
+			    AVERAGEX(
+			        DATESINPERIOD(
+			            sales_forecasting_base[Date],
+			            LASTDATE(sales_forecasting_base[Date]),
+			            -6,
+			            MONTH
+			        ),
+			        sales_forecasting_base[Revenue]
+			    )
+			RETURN
+			    AvgLast6M * 6
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Forecasting\Revenue Forecast
+		lineageTag: m055-forecast-6m
+
+		annotation Description = "6-month forward revenue forecast based on the trailing 6-month average run-rate."
+
+	measure 'Revenue Run Rate (Annual)' =
+			VAR DailyAvg =
+			    AVERAGEX(
+			        DATESINPERIOD(
+			            sales_forecasting_base[Date],
+			            LASTDATE(sales_forecasting_base[Date]),
+			            -365,
+			            DAY
+			        ),
+			        sales_forecasting_base[Revenue]
+			    )
+			RETURN
+			    DailyAvg * 365
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Forecasting\Revenue Forecast
+		lineageTag: m056-annual-run-rate
+
+		annotation Description = "Annualised revenue run rate calculated as the trailing 12-month daily average multiplied by 365. Useful for full-year projections from partial-year actuals."
+
+	measure 'YoY Growth Trend' =
+			VAR YoYPct = [Revenue YoY %]
+			RETURN
+			    IF(
+			        ISBLANK(YoYPct),
+			        "No Prior Year Data",
+			        IF(YoYPct > 0, "Growing", IF(YoYPct < 0, "Declining", "Flat"))
+			    )
+		displayFolder: Forecasting\Trend Analysis
+		lineageTag: m057-yoy-trend
+
+		annotation Description = "Text indicator of YoY revenue trend: Growing when YoY % > 0, Declining when < 0, Flat when zero or blank. Use in KPI cards for executive dashboards."
+
+	measure 'Forecast vs Actual Variance' =
+			[Total Revenue]
+			    - DIVIDE([Revenue Forecast 3M], 3)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Forecasting\Trend Analysis
+		lineageTag: m058-forecast-vs-actual
+
+		annotation Description = "Variance between actual revenue and the 3-month run-rate forecast. Positive = outperforming forecast, Negative = underperforming."
+
+	measure 'Executive Revenue KPI' =
+			IF(
+			    ISFILTERED(sales_dashboard[OrderDate]),
+			    [Revenue YTD],
+			    [Total Revenue]
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Executive KPIs\Revenue
+		lineageTag: m059-exec-rev-kpi
+
+		annotation Description = "Single consolidated revenue KPI for executive scorecards. Returns YTD revenue when a full date context is available, otherwise returns Total Revenue."
+
+	measure 'Executive Profit KPI' =
+			IF(
+			    ISFILTERED(sales_dashboard[OrderDate]),
+			    [Profit YTD],
+			    [Total Profit]
+			)
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: Executive KPIs\Profitability
+		lineageTag: m060-exec-profit-kpi
+
+		annotation Description = "Single consolidated profit KPI for executive scorecards. Returns YTD profit when date-filtered, otherwise Total Profit."
+
+	measure 'Executive Margin KPI' =
+			DIVIDE(
+			    [Executive Profit KPI],
+			    [Executive Revenue KPI],
+			    BLANK()
+			)
+		formatString: 0.00%;-0.00%;0.00%
+		displayFolder: Executive KPIs\Profitability
+		lineageTag: m061-exec-margin-kpi
+
+		annotation Description = "Consolidated profit margin % for executive scorecards. Dynamically calculated from executive revenue and profit KPI measures."
+
+	measure 'Last Refresh Date' =
+			CALCULATE(
+			    MAX(metadata_catalog[RefreshTimestamp]),
+			    ALL(metadata_catalog)
+			)
+		displayFolder: Executive KPIs\Data Quality
+		lineageTag: m062-last-refresh
+
+		annotation Description = "Most recent RefreshTimestamp from the metadata_catalog table. Display in report footer to indicate data freshness."
+
+	measure 'Total Record Count' = SUM(metadata_catalog[RecordCount])
+		formatString: #,0
+		displayFolder: Executive KPIs\Data Quality
+		lineageTag: m063-total-records
+
+		annotation Description = "Sum of record counts across all catalogued Gold tables. Provides a data volume health indicator for operations teams."
+
+	column Column1
+		lineageTag: 1495f572-f6ef-4c1e-abf7-b1305b4689b5
+		isNameInferred
+		sourceColumn: [Column1]
+
+	partition _Measures = calculated
+		source = ROW("Column1", BLANK())
+
+	annotation Description = "Central measure table containing all enterprise DAX measures for this semantic model. Measures are organized into display folders by business domain. This table contains no data rows — it exists solely to host reusable measures."
+
+	annotation PBI_ResultType = Table
+

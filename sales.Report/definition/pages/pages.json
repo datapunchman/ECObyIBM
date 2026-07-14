@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.1.0/schema.json",
+  "pageOrder": [
+    "a4150484ffaf9ff89014",
+    "page_sales_performance",
+    "page_customer_360",
+    "page_product_analytics",
+    "page_territory_performance",
+    "page_executive_kpi"
+  ],
+  "activePageName": "page_executive_kpi"
+}

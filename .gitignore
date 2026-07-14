@@ -1,0 +1,11 @@
+# Power BI
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+
+# Environment
+.env
+.env.example
+
+# Python
+__pycache__/
+*.py[cod]
