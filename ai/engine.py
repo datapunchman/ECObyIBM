@@ -6,9 +6,15 @@ FastAPI application for the AI Reasoning Engine.
 Endpoints
 ---------
 POST /analyze
-    Accept an ``AnalysisRequest``, run the full pipeline
-    (metadata → prompt → IBM Granite → parsed impact analysis), and return
-    a structured ``AnalysisResult`` JSON.
+    Accept an ``AnalysisRequest``, run the full v1 pipeline
+    (metadata snapshot → prompt → IBM Granite → parsed impact analysis),
+    and return a structured ``AnalysisResult`` JSON.
+
+POST /analyze/v2
+    Graph-grounded v2 pipeline:
+    enterprise graph → EnterpriseChangeAnalyzer → GraphOrchestrator →
+    graph-grounded prompt → Granite reasoning → new response shape.
+    Granite NEVER discovers dependencies — only reasons over graph facts.
 
 POST /analyze/raw
     Same as ``/analyze`` but also embeds the unfiltered metadata payload
@@ -205,6 +211,60 @@ def analyze(request: AnalysisRequest) -> JSONResponse:
         content=_result_to_dict(result),
         status_code=status.HTTP_200_OK,
     )
+
+
+@app.post(
+    "/analyze/v2",
+    summary="Graph-grounded impact analysis — Granite reasons only, never discovers",
+    response_description=(
+        "V2 response: change_request, source_asset, graph_analysis (19 buckets, "
+        "confidence=1.0, discovered_by=enterprise_graph), llm_summary."
+    ),
+    status_code=status.HTTP_200_OK,
+)
+def analyze_v2(request: AnalysisRequest) -> JSONResponse:
+    """Run the graph-grounded v2 pipeline.
+
+    Key differences from ``POST /analyze``:
+
+    * The enterprise graph is traversed **before** calling Granite.
+    * All impacted assets are discovered deterministically (``confidence=1.0``).
+    * Granite is given **only** graph-discovered facts and must NOT invent new ones.
+    * The response shape is the new canonical format (19 enterprise buckets +
+      ``llm_summary``).
+    """
+    analyzer = _get_analyzer()
+    try:
+        v2_result = analyzer.analyze_change_v2(request)
+    except EnvironmentError as exc:
+        logger.error("IBM credential error (v2): %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "IBM watsonx.ai credentials are not configured. "
+                f"Set IBM_API_KEY, IBM_PROJECT_ID, and IBM_URL. Detail: {exc}"
+            ),
+        ) from exc
+    except MetadataClientError as exc:
+        logger.error("Metadata API error (v2): %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Metadata API unavailable: {exc}",
+        ) from exc
+    except GraniteClientError as exc:
+        logger.error("Granite API error (v2): %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"IBM Granite call failed: {exc}",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Unexpected error during v2 analysis")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal error: {exc}",
+        ) from exc
+
+    return JSONResponse(content=v2_result, status_code=status.HTTP_200_OK)
 
 
 @app.post(

@@ -4,6 +4,20 @@ ai.response_parser
 Extracts and validates a structured ``ImpactAnalysisResponse`` from the raw
 text returned by a Granite (or any instruction-following) LLM.
 
+Hallucination guard (v2)
+------------------------
+``parse_v2()`` accepts an optional ``empty_buckets`` set that lists every
+enterprise bucket that the graph returned empty.  After JSON parsing the
+scrubber :func:`_scrub_absent_systems` walks every string in
+``deployment_plan``, ``validation_checklist``, and ``rollback_plan`` and
+removes any item that mentions a system whose bucket was empty.  Items are
+matched against a keyword map so ``"update the Databricks notebook"`` is
+removed when ``databricks_notebooks`` is empty.
+
+This is a second line of defence behind the prompt instructions — it
+guarantees that hallucinated system mentions never reach the caller even if
+the model ignores the prompt constraints.
+
 Granite is instructed to return a **single JSON object** matching the
 ``ImpactAnalysisResponse`` schema.  In practice the model may:
 
@@ -40,7 +54,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pydantic import ValidationError
 
@@ -116,6 +130,96 @@ class ResponseParser:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def parse_v2(
+        self,
+        raw_text: str,
+        empty_buckets: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        """Parse the v2 Granite response into an ``llm_summary`` dict.
+
+        The v2 schema only requires 6 fields (no artifact lists — those come
+        from the graph).  If parsing fails a safe fallback dict is returned
+        so the v2 endpoint always succeeds.
+
+        A second-line-of-defence scrubber runs after parsing: any list item
+        in ``deployment_plan``, ``validation_checklist``, or ``rollback_plan``
+        that mentions a system whose bucket was empty is silently removed and
+        logged.  This guarantees hallucinated system mentions never reach the
+        caller even when the model ignores the prompt constraints.
+
+        Parameters
+        ----------
+        raw_text:
+            Raw text returned by Granite.
+        empty_buckets:
+            Set of enterprise bucket names whose asset list was empty (e.g.
+            ``{"databricks_notebooks", "pipelines"}``).  Items mentioning
+            these systems are scrubbed from the free-text list fields.
+            Pass ``None`` or an empty set to skip scrubbing.
+
+        Returns
+        -------
+        dict
+            Keys: ``executive_summary``, ``risk_level``, ``risk_rationale``,
+            ``deployment_plan``, ``validation_checklist``, ``rollback_plan``.
+            A ``_scrubbed_items`` key is added (list[str]) when items were
+            removed, for auditability.
+        """
+        _V2_DEFAULTS: Dict[str, Any] = {
+            "executive_summary": "[PARSE ERROR] Could not parse LLM response.",
+            "risk_level": "critical",
+            "risk_rationale": "Response parsing failed — manual review required.",
+            "deployment_plan": [],
+            "validation_checklist": [],
+            "rollback_plan": [],
+        }
+        if not raw_text or not raw_text.strip():
+            logger.error("parse_v2: LLM returned empty response.")
+            return _V2_DEFAULTS
+
+        json_str, _ = self._extract_json(raw_text)
+        if not json_str:
+            logger.error("parse_v2: no JSON object found in LLM response.")
+            return _V2_DEFAULTS
+
+        try:
+            data: Dict[str, Any] = json.loads(json_str)
+        except json.JSONDecodeError:
+            cleaned = self._clean_json(json_str)
+            try:
+                data = json.loads(cleaned)
+            except json.JSONDecodeError as exc:
+                logger.error("parse_v2: JSON decode error: %s", exc)
+                return _V2_DEFAULTS
+
+        _normalise_data(data)
+
+        # Keep only the 6 expected llm_summary fields; fill missing ones.
+        summary: Dict[str, Any] = {
+            "executive_summary": str(data.get("executive_summary", _V2_DEFAULTS["executive_summary"])),
+            "risk_level": str(data.get("risk_level", "unknown")).lower(),
+            "risk_rationale": str(data.get("risk_rationale", "")),
+            "deployment_plan": data.get("deployment_plan") or [],
+            "validation_checklist": data.get("validation_checklist") or [],
+            "rollback_plan": data.get("rollback_plan") or [],
+        }
+
+        # -- Hallucination scrubber ------------------------------------------
+        if empty_buckets:
+            scrubbed = _scrub_absent_systems(summary, empty_buckets)
+            if scrubbed:
+                logger.warning(
+                    "parse_v2: scrubbed %d hallucinated item(s) referencing "
+                    "empty buckets %s: %s",
+                    len(scrubbed),
+                    sorted(empty_buckets),
+                    scrubbed,
+                )
+                summary["_scrubbed_items"] = scrubbed
+
+        logger.info("parse_v2 success: risk_level=%s", summary["risk_level"])
+        return summary
 
     def parse(self, raw_text: str) -> ImpactAnalysisResponse:
         """Parse ``raw_text`` into a validated ``ImpactAnalysisResponse``.
@@ -273,3 +377,92 @@ def _normalise_data(data: Dict[str, Any]) -> None:
         elif not isinstance(value, list):
             # Absent, None, or unexpected type — default to empty list.
             data[field] = []
+
+
+# ---------------------------------------------------------------------------
+# Hallucination scrubber
+# ---------------------------------------------------------------------------
+
+# Maps every enterprise bucket name to the keywords that would appear in
+# a hallucinated LLM sentence about that bucket.  Matching is
+# case-insensitive substring matching on each list-item string.
+_BUCKET_KEYWORDS: Dict[str, List[str]] = {
+    "database_tables":      ["database table", "sql table", "db table"],
+    "views":                ["view", "sql view", "db view"],
+    "materialized_views":   ["materialized view", "materialised view"],
+    "stored_procedures":    ["stored procedure", "stored proc", "sproc"],
+    "functions":            ["udf", "user-defined function", "sql function"],
+    "databricks_notebooks": ["databricks notebook", "notebook", "databricks"],
+    "spark_jobs":           ["spark job", "spark cluster", "spark submit"],
+    "delta_live_tables":    ["delta live", "dlt pipeline", "delta live table"],
+    "unity_catalog":        ["unity catalog", "unity catalogue"],
+    "pipelines":            ["pipeline", "etl pipeline", "data pipeline"],
+    "data_factory":         ["data factory", "adf", "azure data factory"],
+    "airflow":              ["airflow", "dag ", "airflow dag"],
+    "fabric_pipelines":     ["fabric pipeline", "microsoft fabric"],
+    "semantic_models":      ["semantic model", "dataset", "tabular model"],
+    "powerbi_reports":      ["power bi report", "powerbi report", "pbi report", "report page"],
+    "dashboards":           ["dashboard"],
+    "apis":                 [" api ", "rest api", "web api", "api endpoint"],
+    "external_consumers":   ["external consumer", "downstream consumer"],
+}
+
+# Fields in the llm_summary dict that contain free-text list items to scrub.
+_SCRUB_FIELDS: tuple[str, ...] = (
+    "deployment_plan",
+    "validation_checklist",
+    "rollback_plan",
+)
+
+
+def _scrub_absent_systems(
+    summary: Dict[str, Any],
+    empty_buckets: Set[str],
+) -> List[str]:
+    """Remove list items that mention a system whose bucket is empty.
+
+    Modifies *summary* in-place for the three free-text list fields.
+
+    Parameters
+    ----------
+    summary:
+        The parsed ``llm_summary`` dict (modified in-place).
+    empty_buckets:
+        Set of bucket names that were empty in the graph result.
+
+    Returns
+    -------
+    list[str]
+        All items that were removed (for audit logging).
+    """
+    # Build the set of keywords to watch for from empty buckets only.
+    watch_keywords: List[str] = []
+    for bucket in empty_buckets:
+        watch_keywords.extend(_BUCKET_KEYWORDS.get(bucket, []))
+
+    if not watch_keywords:
+        return []
+
+    removed: List[str] = []
+
+    for field in _SCRUB_FIELDS:
+        items: List[str] = summary.get(field, [])
+        if not isinstance(items, list):
+            continue
+        kept: List[str] = []
+        for item in items:
+            item_lower = item.lower()
+            hit = next(
+                (kw for kw in watch_keywords if kw in item_lower), None
+            )
+            if hit:
+                removed.append(item)
+                logger.debug(
+                    "_scrub_absent_systems: removed %r (matched keyword %r in field %r)",
+                    item, hit, field,
+                )
+            else:
+                kept.append(item)
+        summary[field] = kept
+
+    return removed

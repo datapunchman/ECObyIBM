@@ -7,6 +7,15 @@ Converts a :class:`metadata.models.MetadataPayload` into an
 The adapter is the only coupling point between the metadata layer and the
 graph layer.  It must not modify the payload it receives.
 
+Input normalisation
+-------------------
+``to_enterprise_graph()`` accepts **either** a ``MetadataPayload`` instance
+or a plain ``dict`` (e.g. as returned by a JSON API call).  When a ``dict``
+is received it is coerced into a ``MetadataPayload`` via
+``MetadataPayload.model_validate()`` before graph construction begins.  All
+graph-building logic therefore always operates on a typed model — there is no
+duplicated attribute-access logic.
+
 Mapping rules
 -------------
 Tables     → Asset(asset_type=TABLE,  system=POWERBI)
@@ -25,12 +34,15 @@ Model rels → Relationship(TABLE → TABLE,    type=REFERENCES) preserving from
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from graph.enterprise_graph import EnterpriseGraph
 from graph.models import Asset, AssetType, Relationship, RelationshipType, SystemType
 
 if TYPE_CHECKING:
+    # Only for type-checkers — avoids the circular import at runtime:
+    #   graph.adapter → metadata.models → metadata.__init__
+    #                 → metadata.loader → graph.adapter
     from metadata.models import MetadataPayload
 
 logger = logging.getLogger(__name__)
@@ -44,21 +56,52 @@ class MetadataAdapter:
     """
 
     @staticmethod
-    def to_enterprise_graph(metadata: "MetadataPayload") -> EnterpriseGraph:
+    def to_enterprise_graph(
+        metadata: Union["MetadataPayload", dict],
+    ) -> EnterpriseGraph:
         """Build and return an :class:`EnterpriseGraph` from *metadata*.
 
         Parameters
         ----------
         metadata:
-            A fully populated ``MetadataPayload`` (as returned by
-            ``MetadataEngine.load()``).
+            Either a fully populated :class:`~metadata.models.MetadataPayload`
+            **or** a plain ``dict`` with the same structure (e.g. the raw JSON
+            body returned by the Metadata REST API).  When a ``dict`` is
+            supplied it is coerced into a ``MetadataPayload`` via
+            ``MetadataPayload.model_validate()`` before graph construction
+            begins — no graph-building logic is duplicated.
 
         Returns
         -------
         EnterpriseGraph
             A new graph instance populated with assets and relationships
             derived from the payload.  The payload itself is not modified.
+
+        Raises
+        ------
+        ValueError
+            If *metadata* is neither a ``MetadataPayload`` nor a ``dict``.
         """
+        # ------------------------------------------------------------------
+        # Input normalisation — accept both the typed model and a raw dict.
+        # MetadataPayload is imported lazily here (inside the method body)
+        # to break the otherwise circular import chain:
+        #   graph.adapter → metadata.models → metadata.__init__
+        #                 → metadata.loader → graph.adapter
+        # ------------------------------------------------------------------
+        from metadata.models import MetadataPayload  # noqa: PLC0415
+
+        if isinstance(metadata, dict):
+            logger.debug(
+                "MetadataAdapter: received dict — coercing to MetadataPayload"
+            )
+            metadata = MetadataPayload.model_validate(metadata)
+        elif not isinstance(metadata, MetadataPayload):
+            raise ValueError(
+                f"Unsupported metadata type: {type(metadata)!r}. "
+                "Expected MetadataPayload or dict."
+            )
+
         graph = EnterpriseGraph()
 
         # ------------------------------------------------------------------
