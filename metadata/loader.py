@@ -29,6 +29,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from graph.adapter import MetadataAdapter
+from graph.enterprise_graph import EnterpriseGraph
 from metadata.dependency_builder import DependencyBuilder
 from metadata.models import (
     ColumnMetadata,
@@ -78,6 +80,7 @@ class MetadataEngine:
         self.report_path = Path(report_path)
         self.include_internal_tables = include_internal_tables
         self._payload: Optional[MetadataPayload] = None
+        self._enterprise_graph: Optional[EnterpriseGraph] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -134,6 +137,9 @@ class MetadataEngine:
             dependencies=dependencies,
         )
 
+        # --- Step 7: Build the enterprise graph ---
+        self._enterprise_graph = MetadataAdapter.to_enterprise_graph(self._payload)
+
         logger.info(
             "MetadataEngine: loaded %d tables, %d columns, %d measures, "
             "%d relationships, %d pages, %d dependency edges",
@@ -145,6 +151,15 @@ class MetadataEngine:
             len(dependencies),
         )
         return self._payload
+
+    def get_enterprise_graph(self) -> Optional[EnterpriseGraph]:
+        """Return the :class:`~graph.enterprise_graph.EnterpriseGraph` built
+        during the last :meth:`load` call, or ``None`` if :meth:`load` has
+        not been called yet.
+
+        The graph is rebuilt automatically on every :meth:`load` call.
+        """
+        return self._enterprise_graph
 
     def load_as_dict(self) -> Dict:
         """Convenience wrapper — returns :meth:`load` serialised to plain dict."""
