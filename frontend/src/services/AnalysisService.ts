@@ -2,17 +2,27 @@ import client from "./apiClient";
 import type {
   AnalysisRequest,
   AnalysisResult,
+  V2AnalysisResult,
   HealthStatus,
   PromptPackage,
 } from "@/types";
 
 const AnalysisService = {
   /**
-   * POST /analyze — run the full Granite impact analysis pipeline.
+   * POST /analyze — run the full Granite impact analysis pipeline (v1).
    */
   analyze: (request: AnalysisRequest): Promise<AnalysisResult> =>
     client
       .post<AnalysisResult>("/analyze", request)
+      .then((r) => r.data),
+
+  /**
+   * POST /analyze/v2 — graph-grounded pipeline: enterprise graph traversal
+   * then Granite reasoning only. Returns all 19 enterprise buckets.
+   */
+  analyzeV2: (request: AnalysisRequest): Promise<V2AnalysisResult> =>
+    client
+      .post<V2AnalysisResult>("/analyze/v2", request)
       .then((r) => r.data),
 
   /**

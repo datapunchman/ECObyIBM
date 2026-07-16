@@ -119,17 +119,48 @@ def _task_id(pipeline_name: str, task_name: str) -> str:
     return f"pipeline_task::{pipeline_name}::{task_name}"
 
 
+def _normalise_notebook_path(notebook_path: str) -> str:
+    """Return the basename of a notebook path for ID normalisation.
+
+    The workflow YAML records full Repos paths such as
+    ``/Repos/de-team/01_bronze_ingestion_framework`` while the
+    EcoNotebookParser uses only the bare notebook name extracted from
+    the ``NOTEBOOK_NAME`` field (``01_bronze_ingestion_framework``).
+
+    Stripping to the basename makes both parsers produce the same
+    canonical ``notebook::<name>`` ID so that CALLS edges from pipeline
+    tasks connect to the real notebook assets in the graph.
+
+    Examples:
+        ``/Repos/de-team/01_bronze`` → ``01_bronze``
+        ``01_bronze``                → ``01_bronze``
+        ``/01_bronze/``              → ``01_bronze``
+
+    Args:
+        notebook_path: Raw path string from the YAML ``notebook`` field.
+
+    Returns:
+        Basename string with leading/trailing slashes stripped.
+    """
+    return notebook_path.strip("/").rsplit("/", 1)[-1]
+
+
 def _notebook_stub_id(notebook_path: str) -> str:
     """Return canonical asset ID for a notebook stub reference.
 
+    Normalises *notebook_path* to its basename so that the stub ID
+    matches the ID produced by :class:`~enterprise.notebook_parser.EcoNotebookParser`
+    for the same notebook.
+
     Args:
-        notebook_path: Notebook path string as declared in the YAML.
+        notebook_path: Notebook path string as declared in the YAML,
+            e.g. ``/Repos/de-team/01_bronze_ingestion_framework``.
 
     Returns:
-        Asset ID string, e.g.
-        ``"notebook::/Repos/de-team/01_bronze_ingestion_framework"``.
+        Asset ID string using the basename only, e.g.
+        ``"notebook::01_bronze_ingestion_framework"``.
     """
-    return f"notebook::{notebook_path}"
+    return f"notebook::{_normalise_notebook_path(notebook_path)}"
 
 
 # ---------------------------------------------------------------------------

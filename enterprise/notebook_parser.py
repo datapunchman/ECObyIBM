@@ -99,7 +99,13 @@ logger = logging.getLogger(__name__)
 # Block-boundary sentinels
 # ---------------------------------------------------------------------------
 
+#: Strip the Databricks export ``# MAGIC `` prefix from a raw source line.
+#: Covers both ``# MAGIC #`` (markdown cell content) and ``# MAGIC `` variants.
+_RE_MAGIC_PREFIX = re.compile(r"^\s*#\s*MAGIC\s+", re.IGNORECASE)
+
 #: Comment line that opens an ECO metadata block (case-insensitive match).
+#: Matches both plain  ``# ECO METADATA``
+#: and Databricks-exported ``# MAGIC # ECO METADATA`` (after prefix strip).
 _BLOCK_OPEN  = re.compile(r"^\s*#\s*ECO\s+METADATA\s*$",      re.IGNORECASE)
 #: Comment line that closes an ECO metadata block (case-insensitive match).
 _BLOCK_CLOSE = re.compile(r"^\s*#\s*END\s+ECO\s+METADATA\s*$", re.IGNORECASE)
@@ -124,11 +130,17 @@ _LIST_KEYS: Dict[str, str] = {
     "write_tables": "write_tables",
 }
 
-# Matches a comment-prefixed key/value line inside the block:
-#   "# KEY: value"  or  "# KEY :value"
+# Matches a comment-prefixed key/value line inside the block.
+# Supports both colon-separated  ``# KEY: value``
+# and equals-separated           ``# KEY=value``  (Databricks export format).
 _KEY_VALUE = re.compile(
-    r"^\s*#\s*(?P<key>[A-Za-z_]+)\s*:\s*(?P<value>.*)$",
+    r"^\s*#\s*(?P<key>[A-Za-z_]+)\s*[:=]\s*(?P<value>.*)$",
 )
+
+# Matches a bare comment continuation line inside a list field:
+#   "# some.table.name"  (no KEY= separator)
+# Used to collect multi-line table lists declared as one entry per line.
+_CONTINUATION = re.compile(r"^\s*#\s*(?P<value>\S.*)$")
 
 
 # ---------------------------------------------------------------------------
@@ -162,48 +174,76 @@ def _extract_block(source: str) -> Dict[str, Any]:
     }
 
     in_block = False
+    # Track the most recently seen list field so that bare continuation lines
+    # (e.g. "# bronze.dim_customer" following "# WRITE_TABLES=") are appended
+    # to the correct field instead of being silently discarded.
+    current_list_field: Optional[str] = None
 
     for raw_line in source.splitlines():
-        line = raw_line.rstrip()
+        # Strip the ``# MAGIC `` prefix emitted by Databricks notebook exports.
+        # A typical exported markdown cell line looks like:
+        #   "# MAGIC # ECO METADATA"   or   "# MAGIC # NOTEBOOK_NAME=01_bronze"
+        # After stripping the prefix the remainder is a normal comment line
+        # that the existing sentinel / key-value regexes can handle.
+        stripped = _RE_MAGIC_PREFIX.sub("", raw_line, count=1).rstrip()
 
         # ── Block boundary detection ─────────────────────────────────────
         if not in_block:
-            if _BLOCK_OPEN.match(line):
+            if _BLOCK_OPEN.match(stripped):
                 in_block = True
             continue  # outside block — skip entirely
 
-        if _BLOCK_CLOSE.match(line):
+        if _BLOCK_CLOSE.match(stripped):
             break  # end of block — stop parsing
 
         # ── Key / value extraction ───────────────────────────────────────
-        m = _KEY_VALUE.match(line)
-        if not m:
-            # Comment line inside block with no recognisable key — skip
+        m = _KEY_VALUE.match(stripped)
+        if m:
+            key_raw   = m.group("key").strip().lower()
+            value_raw = m.group("value").strip()
+
+            if key_raw in _SCALAR_KEYS:
+                current_list_field = None  # reset continuation context
+                field = _SCALAR_KEYS[key_raw]
+                result[field] = value_raw if value_raw else None
+
+            elif key_raw in _LIST_KEYS:
+                field = _LIST_KEYS[key_raw]
+                current_list_field = field  # remember for continuation lines
+                # Accept comma-separated list on a single line
+                entries = [e.strip() for e in value_raw.split(",") if e.strip()]
+                # Deduplicate while preserving order
+                seen: set[str] = set(result[field])
+                for entry in entries:
+                    if entry not in seen:
+                        seen.add(entry)
+                        result[field].append(entry)
+
+            else:
+                logger.debug(
+                    "EcoNotebookParser: unrecognised key %r in ECO METADATA block — skipped",
+                    key_raw,
+                )
             continue
 
-        key_raw   = m.group("key").strip().lower()
-        value_raw = m.group("value").strip()
+        # ── Continuation line (bare "# value" with no KEY= separator) ───
+        # Occurs in the Databricks export format when table lists span
+        # multiple lines:
+        #   # WRITE_TABLES=
+        #   # bronze.dim_customer
+        #   # bronze.fact_internet_sales
+        if current_list_field is not None:
+            mc = _CONTINUATION.match(stripped)
+            if mc:
+                entry = mc.group("value").strip()
+                # Skip separator lines like "# ===..." and empty markers
+                if entry and not entry.startswith("="):
+                    seen2: set[str] = set(result[current_list_field])
+                    if entry not in seen2:
+                        result[current_list_field].append(entry)
+                continue
 
-        if key_raw in _SCALAR_KEYS:
-            field = _SCALAR_KEYS[key_raw]
-            result[field] = value_raw if value_raw else None
-
-        elif key_raw in _LIST_KEYS:
-            field = _LIST_KEYS[key_raw]
-            # Accept comma-separated list on a single line
-            entries = [e.strip() for e in value_raw.split(",") if e.strip()]
-            # Deduplicate while preserving order
-            seen: set[str] = set(result[field])
-            for entry in entries:
-                if entry not in seen:
-                    seen.add(entry)
-                    result[field].append(entry)
-
-        else:
-            logger.debug(
-                "EcoNotebookParser: unrecognised key %r in ECO METADATA block — skipped",
-                key_raw,
-            )
+        # Unrecognised line inside block — skip silently
 
     # ── Normalise execution_order to int ────────────────────────────────
     if result["execution_order"] is not None:

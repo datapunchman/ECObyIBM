@@ -196,7 +196,14 @@ class TestIDHelpers:
         assert _task_id("my_pipeline", "task_a") == "pipeline_task::my_pipeline::task_a"
 
     def test_notebook_stub_id(self):
-        assert _notebook_stub_id("/Repos/team/nb") == "notebook::/Repos/team/nb"
+        # Normalised to basename so stub ID matches EcoNotebookParser output
+        assert _notebook_stub_id("/Repos/team/nb") == "notebook::nb"
+
+    def test_notebook_stub_id_bare_name(self):
+        assert _notebook_stub_id("my_notebook") == "notebook::my_notebook"
+
+    def test_notebook_stub_id_trailing_slash(self):
+        assert _notebook_stub_id("/Repos/team/nb/") == "notebook::nb"
 
 
 # ===========================================================================
@@ -325,9 +332,10 @@ class TestPipelineTaskEdges:
 
 class TestTaskNotebookEdges:
     def test_task_calls_notebook(self):
+        # ID is now basename-normalised: notebook::01_ingest (not full path)
         assets, rels = _parser(MINIMAL_YAML).parse()
         task_id = "pipeline_task::test_pipeline::task_a"
-        nb_id = "notebook::/Repos/team/01_ingest"
+        nb_id = "notebook::01_ingest"
         calls = [
             r for r in rels
             if r.relationship == RelationshipType.CALLS
@@ -342,9 +350,10 @@ class TestTaskNotebookEdges:
         assert calls == []
 
     def test_notebook_stub_created(self):
+        # Stub ID uses basename only
         assets, rels = _parser(MINIMAL_YAML).parse()
         nb_stubs = [a for a in assets if a.asset_type == AssetType.DATABRICKS_NOTEBOOK]
-        assert any(a.id == "notebook::/Repos/team/01_ingest" for a in nb_stubs)
+        assert any(a.id == "notebook::01_ingest" for a in nb_stubs)
 
     def test_notebook_stub_system_is_databricks(self):
         assets, _ = _parser(MINIMAL_YAML).parse()
@@ -358,7 +367,7 @@ class TestTaskNotebookEdges:
         assets, rels = _parser(SHARED_NOTEBOOK_YAML).parse()
         stubs = [
             a for a in assets
-            if a.id == "notebook::/Repos/team/shared_nb"
+            if a.id == "notebook::shared_nb"
         ]
         assert len(stubs) == 1
 
@@ -368,7 +377,7 @@ class TestTaskNotebookEdges:
         calls = [
             r for r in rels
             if r.relationship == RelationshipType.CALLS
-            and r.target == "notebook::/Repos/team/shared_nb"
+            and r.target == "notebook::shared_nb"
         ]
         assert len(calls) == 2
 

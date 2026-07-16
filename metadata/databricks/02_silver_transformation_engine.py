@@ -10,8 +10,9 @@
 # MAGIC # Writes:
 # MAGIC #   databricks_course_ws.silver.customer
 # MAGIC #   databricks_course_ws.silver.sales
+# MAGIC # END ECO METADATA
 # MAGIC # ======================================================
-# MAGIC # ECO_METADATA
+# MAGIC # ECO METADATA
 # MAGIC # ======================================================
 # MAGIC # NOTEBOOK_NAME=02_silver_transformation_engine
 # MAGIC # DESCRIPTION=Transforms Bronze data into cleansed Silver tables.
@@ -35,6 +36,7 @@
 # MAGIC # databricks_course_ws.silver.product
 # MAGIC # databricks_course_ws.silver.sales_territory
 # MAGIC # databricks_course_ws.silver.calendar
+# MAGIC # END ECO METADATA
 # MAGIC # ======================================================
 # MAGIC
 # MAGIC

@@ -86,9 +86,182 @@ from enterprise.parsers import BaseMetadataParser
 from enterprise.sql_parser import SQLMetadataParser
 from enterprise.workflow_parser import DatabricksWorkflowParser
 from graph.enterprise_graph import EnterpriseGraph
-from graph.models import Asset, Relationship
+from graph.models import Asset, AssetType, Relationship, RelationshipType, SystemType
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Delta table → Power BI table bridge
+# ---------------------------------------------------------------------------
+
+def _build_delta_bridge_relationships(graph: EnterpriseGraph) -> List[Relationship]:
+    """Return FEEDS edges bridging delta_table assets to matching table assets.
+
+    The medallion pipeline writes to fully-qualified Delta tables such as
+    ``delta_table::databricks_course_ws.gold.customer_360`` while the Power BI
+    semantic model stores the same data as ``table::customer_360`` (bare name).
+    These two assets have different IDs and asset types, so BFS cannot cross
+    the boundary without explicit bridge edges.
+
+    For every ``delta_table::*`` asset in *graph* whose **bare table name**
+    (the last dot-separated segment) matches the name of a ``table::*`` asset
+    in the same graph, a ``delta_table --FEEDS--> table`` edge is added.
+
+    The function never creates duplicate assets — it only adds ``Relationship``
+    objects.  Duplicate bridge edges (same source/target/type) are harmless
+    because :meth:`~enterprise.metadata_loader.EnterpriseMetadataLoader._build_graph`
+    deduplicates on the ``(source, target, relationship_type)`` triple.
+
+    Args:
+        graph: The fully assembled :class:`~graph.enterprise_graph.EnterpriseGraph`.
+
+    Returns:
+        List of new :class:`~graph.models.Relationship` objects to add to the graph.
+    """
+    # Build a lookup: bare_name → table:: asset id
+    table_by_name: Dict[str, str] = {}
+    for asset in graph.assets.values():
+        if asset.asset_type == AssetType.TABLE:
+            # asset.name is already the bare name (e.g. "customer_360")
+            table_by_name[asset.name.lower()] = asset.id
+
+    if not table_by_name:
+        return []
+
+    bridge_rels: List[Relationship] = []
+    existing_edges: Set[Tuple[str, str, str]] = {
+        (r.source, r.target, r.relationship.value)
+        for r in graph.relationships
+    }
+
+    for asset in graph.assets.values():
+        if asset.asset_type != AssetType.DELTA_TABLE:
+            continue
+        # Extract the bare table name: last segment after the final dot
+        # e.g. "databricks_course_ws.gold.customer_360" → "customer_360"
+        #      "bronze.dim_customer"                    → "dim_customer"
+        raw_ref = asset.id.split("::", 1)[-1]   # strip "delta_table::" prefix
+        bare_name = raw_ref.rsplit(".", 1)[-1].lower()
+
+        target_id = table_by_name.get(bare_name)
+        if target_id is None:
+            continue
+
+        edge_key = (asset.id, target_id, RelationshipType.FEEDS.value)
+        if edge_key in existing_edges:
+            continue
+
+        bridge_rels.append(Relationship(
+            source=asset.id,
+            target=target_id,
+            relationship=RelationshipType.FEEDS,
+            properties={"via": "delta_table_bridge"},
+        ))
+        existing_edges.add(edge_key)
+        logger.debug(
+            "_build_delta_bridge_relationships: %s --FEEDS--> %s",
+            asset.id, target_id,
+        )
+
+    if bridge_rels:
+        logger.info(
+            "EnterpriseMetadataLoader: added %d delta→table bridge edge(s)",
+            len(bridge_rels),
+        )
+    return bridge_rels
+
+
+def _build_powerbi_downstream_edges(graph: EnterpriseGraph) -> List[Relationship]:
+    """Return FEEDS edges for Power BI downstream impact traversal.
+
+    The :class:`~graph.adapter.MetadataAdapter` creates edges in the direction
+    that represents semantic dependency:
+        ``column   --DEPENDS_ON--> table``
+        ``measure  --DEPENDS_ON--> table``
+        ``measure  --DEPENDS_ON--> measure``
+        ``measure  --USES-->       column``
+        ``report   --USES-->       table``
+        ``report   --DISPLAYS-->   measure``
+
+    For downstream BFS (source→target = upstream→downstream), these edges are
+    traversed **backwards** — a change to a ``table`` never reaches its
+    consuming ``column``, ``measure``, or ``report`` because those assets point
+    *toward* the table, not away from it.
+
+    This function adds the inverse ``FEEDS`` edges so that BFS correctly
+    propagates a table change to all downstream Power BI consumers:
+
+    - ``table  --FEEDS--> column``   (column depends on the table)
+    - ``table  --FEEDS--> measure``  (measure references the table)
+    - ``column --FEEDS--> measure``  (measure uses the column)
+    - ``measure --FEEDS--> measure`` (downstream measure depends on upstream)
+    - ``table  --FEEDS--> report``   (report uses the table directly)
+    - ``measure --FEEDS--> report``  (report displays the measure)
+
+    Duplicate edges are skipped.
+
+    Args:
+        graph: The fully assembled :class:`~graph.enterprise_graph.EnterpriseGraph`.
+
+    Returns:
+        List of new :class:`~graph.models.Relationship` objects to add.
+    """
+    reverse_feeds: List[Relationship] = []
+    existing_edges: Set[Tuple[str, str, str]] = {
+        (r.source, r.target, r.relationship.value)
+        for r in graph.relationships
+    }
+
+    # Relationship types for which we add a reversed FEEDS edge
+    _REVERSE_TYPES = frozenset({
+        RelationshipType.DEPENDS_ON.value,
+        RelationshipType.USES.value,
+        RelationshipType.DISPLAYS.value,
+    })
+
+    for rel in graph.relationships:
+        if rel.relationship.value not in _REVERSE_TYPES:
+            continue
+        # Only invert edges that involve Power BI / database assets
+        src_asset = graph.assets.get(rel.source)
+        tgt_asset = graph.assets.get(rel.target)
+        if src_asset is None or tgt_asset is None:
+            continue
+        # Only create reverse-FEEDS for Power BI and database semantic-model edges
+        relevant_types = {
+            AssetType.COLUMN.value,
+            AssetType.TABLE.value,
+            AssetType.MEASURE.value,
+            AssetType.REPORT.value,
+            AssetType.DATABASE_TABLE.value,
+            AssetType.DATABASE_COLUMN.value,
+            AssetType.PRIMARY_KEY.value,
+            AssetType.FOREIGN_KEY.value,
+        }
+        if src_asset.asset_type.value not in relevant_types:
+            continue
+        if tgt_asset.asset_type.value not in relevant_types:
+            continue
+
+        # Inverted: target --FEEDS--> source
+        edge_key = (rel.target, rel.source, RelationshipType.FEEDS.value)
+        if edge_key not in existing_edges:
+            reverse_feeds.append(Relationship(
+                source=rel.target,
+                target=rel.source,
+                relationship=RelationshipType.FEEDS,
+                properties={"via": "powerbi_reverse"},
+            ))
+            existing_edges.add(edge_key)
+
+    if reverse_feeds:
+        logger.info(
+            "EnterpriseMetadataLoader: added %d Power BI downstream FEEDS edge(s)",
+            len(reverse_feeds),
+        )
+    return reverse_feeds
+
 
 # ---------------------------------------------------------------------------
 # Type alias
@@ -234,6 +407,19 @@ class EnterpriseMetadataLoader:
 
         # ── Merge into one graph ──────────────────────────────────────────
         graph = self._build_graph(all_assets, all_relationships)
+
+        # ── Delta → table bridge (Fix 3) ──────────────────────────────────
+        # Must run AFTER the full graph is assembled so both delta_table and
+        # table assets are present.  Bridge edges are added directly to the
+        # graph (not via _build_graph) because deduplication already ran.
+        for bridge_rel in _build_delta_bridge_relationships(graph):
+            graph.add_relationship(bridge_rel)
+
+        # ── Power BI reverse FEEDS edges (Fix 5) ──────────────────────────
+        # Invert DEPENDS_ON / USES / DISPLAYS edges so that downstream BFS
+        # from a table correctly reaches columns, measures, and reports.
+        for bridge_rel in _build_powerbi_downstream_edges(graph):
+            graph.add_relationship(bridge_rel)
 
         logger.info(
             "EnterpriseMetadataLoader: built graph with %d assets, %d relationships",

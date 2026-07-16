@@ -380,14 +380,16 @@ def _parse_sql_text(
                     metadata={"sql_type": "view"},
                 ))
 
-                # Lineage edges: VIEW ──READS──> TABLE
+                # Lineage edges: TABLE ──FEEDS──> VIEW
+                # Direction: source TABLE → downstream VIEW so that BFS from a
+                # changed table reaches the view (and anything beyond it).
                 body_start = m.end()
                 body = stmt[body_start:]
                 for tbl_id in _extract_table_refs(body, known_table_ids):
                     relationships.append(Relationship(
-                        source=aid,
-                        target=tbl_id,
-                        relationship=RelationshipType.READS,
+                        source=tbl_id,
+                        target=aid,
+                        relationship=RelationshipType.FEEDS,
                         properties={"via": "view_definition"},
                     ))
                 continue
@@ -419,14 +421,14 @@ def _parse_sql_text(
                     metadata={"sql_type": "procedure"},
                 ))
 
-                # Lineage edges: PROC ──READS──> TABLE
+                # Lineage edges: TABLE ──FEEDS──> PROCEDURE
                 body_start = m.end()
                 body = stmt[body_start:]
                 for tbl_id in _extract_table_refs(body, known_table_ids):
                     relationships.append(Relationship(
-                        source=aid,
-                        target=tbl_id,
-                        relationship=RelationshipType.READS,
+                        source=tbl_id,
+                        target=aid,
+                        relationship=RelationshipType.FEEDS,
                         properties={"via": "procedure_body"},
                     ))
                 continue
@@ -458,14 +460,14 @@ def _parse_sql_text(
                     metadata={"sql_type": "function"},
                 ))
 
-                # Lineage edges: FUNCTION ──READS──> TABLE
+                # Lineage edges: TABLE ──FEEDS──> FUNCTION
                 body_start = m.end()
                 body = stmt[body_start:]
                 for tbl_id in _extract_table_refs(body, known_table_ids):
                     relationships.append(Relationship(
-                        source=aid,
-                        target=tbl_id,
-                        relationship=RelationshipType.READS,
+                        source=tbl_id,
+                        target=aid,
+                        relationship=RelationshipType.FEEDS,
                         properties={"via": "function_body"},
                     ))
                 continue

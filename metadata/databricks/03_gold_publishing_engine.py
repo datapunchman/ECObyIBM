@@ -30,6 +30,7 @@
 # MAGIC # databricks_course_ws.gold.territory_performance
 # MAGIC # databricks_course_ws.gold.metadata_catalog
 # MAGIC # databricks_course_ws.gold.executive_kpi
+# MAGIC # END ECO METADATA
 # MAGIC
 # MAGIC # Execution Order = 3
 # MAGIC

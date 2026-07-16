@@ -291,21 +291,23 @@ class TestParserViews:
         assert view.schema == "dbo"
 
     def test_view_reads_edges(self):
+        # TABLE ──FEEDS──> VIEW direction (Fix 4: reversed for downstream BFS)
         sql = self._make_view_sql()
         p = SQLMetadataParser(source=sql)
         assets, rels = p.parse()
         view_id = "sql::dbo.vw_customer_360"
-        reads = [r for r in rels if r.source == view_id]
-        targets = {r.target for r in reads}
-        assert "sql::dbo.dim_customer" in targets
-        assert "sql::dbo.dim_sales_territory" in targets
+        feeds = [r for r in rels if r.target == view_id]
+        sources = {r.source for r in feeds}
+        assert "sql::dbo.dim_customer" in sources
+        assert "sql::dbo.dim_sales_territory" in sources
 
     def test_view_reads_edge_type(self):
+        # Edges are now FEEDS (TABLE→VIEW), not READS (VIEW→TABLE)
         sql = self._make_view_sql()
         p = SQLMetadataParser(source=sql)
         _, rels = p.parse()
         for r in rels:
-            assert r.relationship == RelationshipType.READS
+            assert r.relationship == RelationshipType.FEEDS
 
     def test_view_no_reads_when_tables_unknown(self):
         # View only, no tables defined → no READS edges possible
@@ -318,6 +320,7 @@ class TestParserViews:
         assert rels == []
 
     def test_view_or_replace(self):
+        # FEEDS edge: source=table, target=view
         sql = textwrap.dedent("""\
             CREATE TABLE dbo.orders (id INT);
             CREATE OR REPLACE VIEW dbo.vw_orders AS
@@ -328,7 +331,8 @@ class TestParserViews:
         views = [a for a in assets if a.asset_type == AssetType.SQL_VIEW]
         assert len(views) == 1
         assert len(rels) == 1
-        assert rels[0].target == "sql::dbo.orders"
+        assert rels[0].source == "sql::dbo.orders"
+        assert rels[0].target == "sql::dbo.vw_orders"
 
     def test_duplicate_view_skipped(self):
         sql = textwrap.dedent("""\
@@ -398,22 +402,24 @@ class TestParserProcedures:
         assert proc.schema == "dbo"
 
     def test_procedure_reads_edges(self):
+        # TABLE ──FEEDS──> PROCEDURE direction
         sql = self._make_proc_sql()
         p = SQLMetadataParser(source=sql)
         _, rels = p.parse()
         proc_id = "sql::dbo.usp_get_customer_orders"
-        reads = [r for r in rels if r.source == proc_id]
-        targets = {r.target for r in reads}
-        assert "sql::dbo.fact_internet_sales" in targets
-        assert "sql::dbo.dim_customer" in targets
-        assert "sql::dbo.dim_product" in targets
+        feeds = [r for r in rels if r.target == proc_id]
+        sources = {r.source for r in feeds}
+        assert "sql::dbo.fact_internet_sales" in sources
+        assert "sql::dbo.dim_customer" in sources
+        assert "sql::dbo.dim_product" in sources
 
     def test_procedure_reads_edge_type(self):
+        # Edges are now FEEDS (TABLE→PROC), not READS (PROC→TABLE)
         sql = self._make_proc_sql()
         p = SQLMetadataParser(source=sql)
         _, rels = p.parse()
         for r in rels:
-            assert r.relationship == RelationshipType.READS
+            assert r.relationship == RelationshipType.FEEDS
 
     def test_procedure_no_reads_when_no_tables(self):
         sql = textwrap.dedent("""\
@@ -497,16 +503,18 @@ class TestParserFunctions:
         assert fn.schema == "dbo"
 
     def test_function_reads_edges(self):
+        # TABLE ──FEEDS──> FUNCTION direction
         sql = self._make_fn_sql()
         p = SQLMetadataParser(source=sql)
         _, rels = p.parse()
         fn_id = "sql::dbo.fn_sales_by_date_range"
-        reads = [r for r in rels if r.source == fn_id]
-        targets = {r.target for r in reads}
-        assert "sql::dbo.fact_internet_sales" in targets
-        assert "sql::dbo.dim_date" in targets
+        feeds = [r for r in rels if r.target == fn_id]
+        sources = {r.source for r in feeds}
+        assert "sql::dbo.fact_internet_sales" in sources
+        assert "sql::dbo.dim_date" in sources
 
     def test_scalar_function(self):
+        # FEEDS edge: source=table, target=function
         sql = textwrap.dedent("""\
             CREATE TABLE dbo.fact_sales (id INT);
             CREATE FUNCTION dbo.fn_clv(@customer_key INT)
@@ -525,7 +533,8 @@ class TestParserFunctions:
         fns = [a for a in assets if a.asset_type == AssetType.SQL_FUNCTION]
         assert len(fns) == 1
         assert len(rels) == 1
-        assert rels[0].target == "sql::dbo.fact_sales"
+        assert rels[0].source == "sql::dbo.fact_sales"
+        assert rels[0].target == "sql::dbo.fn_clv"
 
     def test_function_or_replace(self):
         sql = textwrap.dedent("""\
@@ -649,7 +658,9 @@ class TestDirectoryLoading:
         views = [a for a in assets if a.asset_type == AssetType.SQL_VIEW]
         assert len(views) == 1
         assert len(rels) == 1
-        assert rels[0].target == "sql::dbo.orders"
+        # FEEDS direction: source=table, target=view
+        assert rels[0].source == "sql::dbo.orders"
+        assert rels[0].target == "sql::dbo.vw_orders"
 
     def test_multiple_sql_files_in_dir(self, tmp_path):
         (tmp_path / "a_tables.sql").write_text(
@@ -702,6 +713,7 @@ class TestSingleFileLoading:
 
 class TestMixedDDL:
     def test_table_view_proc_function(self):
+        # FEEDS direction: source=table, target=view/proc/fn
         sql = textwrap.dedent("""\
             CREATE TABLE dbo.orders (id INT);
             CREATE VIEW dbo.vw_orders AS SELECT * FROM dbo.orders;
@@ -721,14 +733,15 @@ class TestMixedDDL:
         assert len(views) == 1
         assert len(procs) == 1
         assert len(fns) == 1
-        # Each of view, proc, fn should have a READS edge to orders
+        # Each of view, proc, fn should have a FEEDS edge from orders
         assert len(rels) == 3
-        sources = {r.source for r in rels}
-        assert "sql::dbo.vw_orders" in sources
-        assert "sql::dbo.usp_orders" in sources
-        assert "sql::dbo.fn_orders" in sources
+        targets = {r.target for r in rels}
+        assert "sql::dbo.vw_orders" in targets
+        assert "sql::dbo.usp_orders" in targets
+        assert "sql::dbo.fn_orders" in targets
 
     def test_all_edges_point_to_table(self):
+        # FEEDS direction: source=table, targets=view/proc
         sql = textwrap.dedent("""\
             CREATE TABLE dbo.orders (id INT);
             CREATE VIEW dbo.vw_orders AS SELECT * FROM dbo.orders;
@@ -737,10 +750,11 @@ class TestMixedDDL:
         p = SQLMetadataParser(source=sql)
         _, rels = p.parse()
         for r in rels:
-            assert r.target == "sql::dbo.orders"
-            assert r.relationship == RelationshipType.READS
+            assert r.source == "sql::dbo.orders"
+            assert r.relationship == RelationshipType.FEEDS
 
     def test_cross_join_view(self):
+        # FEEDS: source=each table, target=view
         sql = textwrap.dedent("""\
             CREATE TABLE dbo.a (id INT);
             CREATE TABLE dbo.b (id INT);
@@ -753,8 +767,8 @@ class TestMixedDDL:
         """)
         p = SQLMetadataParser(source=sql)
         _, rels = p.parse()
-        targets = {r.target for r in rels}
-        assert targets == {"sql::dbo.a", "sql::dbo.b", "sql::dbo.c"}
+        sources = {r.source for r in rels}
+        assert sources == {"sql::dbo.a", "sql::dbo.b", "sql::dbo.c"}
 
 
 # ===========================================================================
@@ -831,27 +845,30 @@ class TestRealMetadataSqlDir:
         assert len(fns) >= 3  # fn_customer_lifetime_value, fn_sales_by_date_range, fn_discount_percentage
 
     def test_produces_reads_relationships(self):
-        reads = [r for r in self.rels if r.relationship == RelationshipType.READS]
-        assert len(reads) > 0
+        # Renamed: edges are now FEEDS (TABLE→VIEW/PROC/FN)
+        feeds = [r for r in self.rels if r.relationship == RelationshipType.FEEDS]
+        assert len(feeds) > 0
 
     def test_all_reads_source_is_non_table(self):
+        # FEEDS source IS the table; target is the downstream consumer
         table_ids = {
             a.id for a in self.assets if a.asset_type == AssetType.DATABASE_TABLE
         }
         for r in self.rels:
-            if r.relationship == RelationshipType.READS:
-                assert r.source not in table_ids, (
-                    f"TABLE should not be a READS source: {r.source}"
+            if r.relationship == RelationshipType.FEEDS:
+                assert r.source in table_ids, (
+                    f"FEEDS source should be a TABLE: {r.source}"
                 )
 
     def test_all_reads_target_is_table(self):
+        # FEEDS target is a downstream consumer (view/proc/fn), not a table
         table_ids = {
             a.id for a in self.assets if a.asset_type == AssetType.DATABASE_TABLE
         }
         for r in self.rels:
-            if r.relationship == RelationshipType.READS:
-                assert r.target in table_ids, (
-                    f"READS target is not a known table: {r.target}"
+            if r.relationship == RelationshipType.FEEDS:
+                assert r.target not in table_ids, (
+                    f"FEEDS target should NOT be a table: {r.target}"
                 )
 
     def test_specific_table_exists(self):
@@ -873,36 +890,37 @@ class TestRealMetadataSqlDir:
         assert "sql::dbo.fn_customer_lifetime_value" in ids
 
     def test_view_customer_360_reads_dim_customer(self):
-        reads = [
+        # FEEDS direction: table→view
+        feeds = [
             r for r in self.rels
-            if r.source == "sql::dbo.vw_customer_360"
-            and r.target == "sql::dbo.dim_customer"
+            if r.source == "sql::dbo.dim_customer"
+            and r.target == "sql::dbo.vw_customer_360"
         ]
-        assert len(reads) == 1
+        assert len(feeds) == 1
 
     def test_view_customer_360_reads_dim_territory(self):
-        reads = [
+        feeds = [
             r for r in self.rels
-            if r.source == "sql::dbo.vw_customer_360"
-            and r.target == "sql::dbo.dim_sales_territory"
+            if r.source == "sql::dbo.dim_sales_territory"
+            and r.target == "sql::dbo.vw_customer_360"
         ]
-        assert len(reads) == 1
+        assert len(feeds) == 1
 
     def test_procedure_reads_fact_sales(self):
-        reads = [
+        feeds = [
             r for r in self.rels
-            if r.source == "sql::dbo.usp_get_customer_orders"
-            and r.target == "sql::dbo.fact_internet_sales"
+            if r.source == "sql::dbo.fact_internet_sales"
+            and r.target == "sql::dbo.usp_get_customer_orders"
         ]
-        assert len(reads) == 1
+        assert len(feeds) == 1
 
     def test_function_clv_reads_fact_sales(self):
-        reads = [
+        feeds = [
             r for r in self.rels
-            if r.source == "sql::dbo.fn_customer_lifetime_value"
-            and r.target == "sql::dbo.fact_internet_sales"
+            if r.source == "sql::dbo.fact_internet_sales"
+            and r.target == "sql::dbo.fn_customer_lifetime_value"
         ]
-        assert len(reads) == 1
+        assert len(feeds) == 1
 
     def test_all_assets_have_system_database(self):
         for a in self.assets:

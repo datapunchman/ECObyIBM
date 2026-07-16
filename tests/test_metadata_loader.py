@@ -466,6 +466,7 @@ class TestSQLSource:
         assert len(views) == 1
 
     def test_sql_reads_edge_present(self, tmp_path):
+        # Edges are now FEEDS (TABLE→VIEW), not READS (VIEW→TABLE)
         sql_dir = self._make_sql_dir(tmp_path)
         loader = EnterpriseMetadataLoader(
             load_powerbi=False, load_databricks=False,
@@ -473,8 +474,8 @@ class TestSQLSource:
             sql_dir=sql_dir,
         )
         graph = loader.load()
-        reads = [r for r in graph.relationships if r.relationship == RelationshipType.READS]
-        assert len(reads) == 1
+        feeds = [r for r in graph.relationships if r.relationship == RelationshipType.FEEDS]
+        assert len(feeds) == 1
 
     def test_no_duplicate_asset_ids(self, tmp_path):
         sql_dir = self._make_sql_dir(tmp_path)

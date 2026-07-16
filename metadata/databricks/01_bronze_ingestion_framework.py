@@ -26,6 +26,7 @@
 # MAGIC # databricks_course_ws.bronze.dim_product
 # MAGIC # databricks_course_ws.bronze.dim_sales_territory
 # MAGIC # databricks_course_ws.bronze.dim_date
+# MAGIC # END ECO METADATA
 # MAGIC # ==========================================================
 # MAGIC
 # MAGIC

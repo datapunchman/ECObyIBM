@@ -54,9 +54,9 @@ const Home: React.FC = () => {
     if (!request.trim()) return;
     const result = await (async () => {
       const { AnalysisService } = await import("@/services");
-      return AnalysisService.analyze({ request, change_type: "unknown" });
+      return AnalysisService.analyzeV2({ request, change_type: "unknown" });
     })();
-    resultRef.current = result;
+    resultRef.current = result as unknown as AnalysisResult;
     void analyze; // suppress unused warning — navigation carries the result via state
     navigate("/analysis", { state: { result, request } });
   };

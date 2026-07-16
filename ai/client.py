@@ -42,7 +42,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from ai.models import MetadataSnapshot
-from graph.adapter import MetadataAdapter
+from enterprise.metadata_loader import EnterpriseMetadataLoader
 from graph.enterprise_graph import EnterpriseGraph
 
 logger = logging.getLogger(__name__)
@@ -156,27 +156,22 @@ class MetadataClient:
         return self._get("/metadata")
 
     def fetch_enterprise_graph(self) -> EnterpriseGraph:
-        """Fetch the full metadata payload and return an ``EnterpriseGraph``.
+        """Build and return an ``EnterpriseGraph`` from all enterprise metadata sources.
 
-        The graph is built by :class:`~graph.adapter.MetadataAdapter` from the
-        raw Metadata API payload.  The result is NOT cached — each call fetches
-        fresh data.
+        The graph is built by :class:`~enterprise.metadata_loader.EnterpriseMetadataLoader`
+        which combines Power BI, Databricks notebooks, Databricks workflow, SQL DDL,
+        and ADLS inventory into a single unified graph.  The result is NOT cached —
+        each call builds fresh data.
 
         Returns
         -------
         EnterpriseGraph
-            Fully populated graph ready for
+            Fully populated graph with all enterprise systems ready for
             :class:`~change.analyzer.EnterpriseChangeAnalyzer`.
-
-        Raises
-        ------
-        MetadataClientError
-            On any HTTP error, network failure, or non-200 response.
         """
-        raw = self._get("/metadata")
-        graph = MetadataAdapter.to_enterprise_graph(raw)
+        graph = EnterpriseMetadataLoader().load()
         logger.info(
-            "EnterpriseGraph fetched: %d assets, %d relationships",
+            "EnterpriseGraph built: %d assets, %d relationships",
             len(graph.assets),
             len(graph.relationships),
         )
