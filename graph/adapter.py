@@ -16,10 +16,23 @@ is received it is coerced into a ``MetadataPayload`` via
 graph-building logic therefore always operates on a typed model — there is no
 duplicated attribute-access logic.
 
+System Classification
+---------------------
+TMDL ``source_type`` controls the system assignment for tables and their columns:
+
+* ``source_type == "m"``           — import-mode table backed by a real database
+  query.  Table and all its columns get ``system=DATABASE``.
+* ``source_type == "calculated"``  — DAX-computed table.  ``system=POWERBI``.
+* Anything else (``None``, ``""``) — assumed Power BI in-memory model.
+  ``system=POWERBI``.
+
+All measures and report pages are always ``system=POWERBI`` regardless of
+source_type.
+
 Mapping rules
 -------------
-Tables     → Asset(asset_type=TABLE,  system=POWERBI)
-Columns    → Asset(asset_type=COLUMN, system=POWERBI)
+Tables     → Asset(asset_type=TABLE,  system=DATABASE|POWERBI)  ← source_type-driven
+Columns    → Asset(asset_type=COLUMN, system=DATABASE|POWERBI)  ← inherited from parent table
            → Relationship(COLUMN → TABLE, type=DEPENDS_ON)
 Measures   → Asset(asset_type=MEASURE, system=POWERBI)
            → Relationship(MEASURE → TABLE, type=DEPENDS_ON)  for each referenced table
@@ -106,14 +119,27 @@ class MetadataAdapter:
 
         # ------------------------------------------------------------------
         # Tables
+        # Determine system from source_type:
+        #   "m"          → DATABASE (import-mode, backed by a real DB query)
+        #   "calculated" → POWERBI  (DAX-computed table)
+        #   None / ""    → POWERBI  (default BI in-memory model)
         # ------------------------------------------------------------------
+        # Build a lookup so columns can inherit their parent table's system.
+        _table_system: dict[str, SystemType] = {}
+
         for table in metadata.tables:
             asset_id = f"table::{table.name}"
+            table_system = (
+                SystemType.DATABASE
+                if table.source_type == "m"
+                else SystemType.POWERBI
+            )
+            _table_system[table.name] = table_system
             graph.add_asset(Asset(
                 id=asset_id,
                 name=table.name,
                 asset_type=AssetType.TABLE,
-                system=SystemType.POWERBI,
+                system=table_system,
                 properties={
                     "source_type": table.source_type,
                     "is_hidden": table.is_hidden,
@@ -123,15 +149,17 @@ class MetadataAdapter:
             ))
 
         # ------------------------------------------------------------------
-        # Columns — each column belongs to its parent table
+        # Columns — each column belongs to its parent table.
+        # Inherit system from the parent table (DATABASE vs POWERBI).
         # ------------------------------------------------------------------
         for column in metadata.columns:
             asset_id = f"column::{column.table_name}::{column.name}"
+            col_system = _table_system.get(column.table_name, SystemType.POWERBI)
             graph.add_asset(Asset(
                 id=asset_id,
                 name=column.name,
                 asset_type=AssetType.COLUMN,
-                system=SystemType.POWERBI,
+                system=col_system,
                 properties={
                     "table_name": column.table_name,
                     "data_type": column.data_type,

@@ -1,0 +1,86 @@
+################################################################################
+# metadata/databricks/pipeline.yml
+#
+# Databricks Workflow definition consumed by DatabricksWorkflowParser.
+#
+# Schema
+# ------
+# pipeline:
+#   name:        (string, required)  Human-readable pipeline name.
+#   platform:    (string, optional)  e.g. "databricks", "azure", "aws".
+#   description: (string, optional)  Free-text description.
+#
+#   tasks:                           List of workflow tasks.
+#     - name:           (string, required)   Task name (unique within pipeline).
+#       execution_order: (int, optional)     Override numeric execution order.
+#       layer:           (string, optional)  e.g. "bronze", "silver", "gold".
+#       catalog:         (string, optional)  Unity Catalog / Hive catalog name.
+#       schema:          (string, optional)  Schema / database name.
+#       notebook:        (string, optional)  Path to the Databricks notebook.
+#       depends_on:      (list,   optional)  List of task names this task depends on.
+#
+################################################################################
+
+pipeline:
+  name: medallion_data_pipeline
+  platform: databricks
+  description: >
+    End-to-end medallion architecture pipeline.
+    Ingests raw data from landing zone, transforms through bronze/silver/gold layers,
+    and publishes final assets for Power BI consumption.
+
+  tasks:
+
+    - name: ingest_customer_data
+      execution_order: 1
+      layer: bronze
+      catalog: hive_metastore
+      schema: bronze
+      notebook: /Repos/de-team/01_bronze_ingestion_framework
+      depends_on: []
+
+    - name: ingest_sales_data
+      execution_order: 2
+      layer: bronze
+      catalog: hive_metastore
+      schema: bronze
+      notebook: /Repos/de-team/01_bronze_ingestion_framework
+      depends_on: []
+
+    - name: transform_customer_silver
+      execution_order: 3
+      layer: silver
+      catalog: hive_metastore
+      schema: silver
+      notebook: /Repos/de-team/02_silver_transformation_engine
+      depends_on:
+        - ingest_customer_data
+
+    - name: transform_sales_silver
+      execution_order: 4
+      layer: silver
+      catalog: hive_metastore
+      schema: silver
+      notebook: /Repos/de-team/02_silver_transformation_engine
+      depends_on:
+        - ingest_sales_data
+
+    - name: publish_gold_customer_360
+      execution_order: 5
+      layer: gold
+      catalog: hive_metastore
+      schema: gold
+      notebook: /Repos/de-team/03_gold_publishing_engine
+      depends_on:
+        - transform_customer_silver
+        - transform_sales_silver
+
+    - name: publish_gold_sales_dashboard
+      execution_order: 6
+      layer: gold
+      catalog: hive_metastore
+      schema: gold
+      notebook: /Repos/de-team/03_gold_publishing_engine
+      depends_on:
+        - transform_customer_silver
+        - transform_sales_silver

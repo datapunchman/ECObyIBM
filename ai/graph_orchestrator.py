@@ -55,22 +55,56 @@ logger = logging.getLogger(__name__)
 # "external_consumers" so new asset types never cause a KeyError.
 
 _ASSET_TYPE_TO_BUCKET: Dict[str, str] = {
-    AssetType.DATABASE.value:        "database_tables",
-    AssetType.TABLE.value:           "database_tables",
-    AssetType.COLUMN.value:          "database_tables",
-    AssetType.VIEW.value:            "views",
-    AssetType.STORED_PROCEDURE.value: "stored_procedures",
-    AssetType.FUNCTION.value:        "functions",
-    AssetType.NOTEBOOK.value:        "databricks_notebooks",
-    AssetType.DELTA_TABLE.value:     "delta_live_tables",
-    AssetType.PIPELINE.value:        "pipelines",
-    AssetType.JOB.value:             "spark_jobs",
-    AssetType.API.value:             "apis",
-    AssetType.SEMANTIC_MODEL.value:  "semantic_models",
-    AssetType.REPORT.value:          "powerbi_reports",
-    AssetType.VISUAL.value:          "powerbi_reports",
-    AssetType.MEASURE.value:         "semantic_models",
-    AssetType.DASHBOARD.value:       "dashboards",
+    # ── Database / SQL ─────────────────────────────────────────────────────
+    AssetType.DATABASE.value:           "database_tables",
+    AssetType.DATABASE_TABLE.value:     "database_tables",
+    AssetType.DATABASE_COLUMN.value:    "database_tables",
+    AssetType.PRIMARY_KEY.value:        "database_tables",
+    AssetType.FOREIGN_KEY.value:        "database_tables",
+    AssetType.TABLE.value:              "database_tables",
+    AssetType.COLUMN.value:             "database_tables",
+    AssetType.VIEW.value:               "views",
+    AssetType.SQL_VIEW.value:           "views",
+    AssetType.MATERIALIZED_VIEW.value:  "materialized_views",
+    AssetType.STORED_PROCEDURE.value:   "stored_procedures",
+    AssetType.FUNCTION.value:           "functions",
+    AssetType.SQL_FUNCTION.value:       "functions",
+
+    # ── Databricks / Spark ─────────────────────────────────────────────────
+    AssetType.DATABRICKS_NOTEBOOK.value: "databricks_notebooks",
+    AssetType.NOTEBOOK.value:            "databricks_notebooks",
+    AssetType.SPARK_JOB.value:           "spark_jobs",
+    AssetType.JOB.value:                 "spark_jobs",
+    AssetType.DELTA_TABLE.value:         "delta_live_tables",
+    AssetType.DELTA_LIVE_TABLE.value:    "delta_live_tables",
+    AssetType.UNITY_CATALOG_OBJECT.value: "unity_catalog",
+
+    # ── Storage ─────────────────────────────────────────────────────────────
+    AssetType.ADLS_FILE.value:           "external_consumers",
+
+    # ── Orchestration / Pipelines ──────────────────────────────────────────
+    AssetType.PIPELINE.value:            "pipelines",
+    AssetType.PIPELINE_TASK.value:       "pipelines",
+    AssetType.ADF_PIPELINE.value:        "data_factory",
+    AssetType.FABRIC_PIPELINE.value:     "fabric_pipelines",
+    AssetType.AIRFLOW_DAG.value:         "airflow",
+    AssetType.DATAFLOW.value:            "pipelines",
+
+    # ── API ─────────────────────────────────────────────────────────────────
+    AssetType.API.value:                 "apis",
+    AssetType.REST_API.value:            "apis",
+
+    # ── Power BI / BI ───────────────────────────────────────────────────────
+    AssetType.SEMANTIC_MODEL.value:      "semantic_models",
+    AssetType.POWERBI_DATASET.value:     "semantic_models",
+    AssetType.MEASURE.value:             "semantic_models",
+    AssetType.POWERBI_MEASURE.value:     "semantic_models",
+    AssetType.REPORT.value:              "powerbi_reports",
+    AssetType.POWERBI_REPORT.value:      "powerbi_reports",
+    AssetType.VISUAL.value:              "powerbi_reports",
+    AssetType.POWERBI_VISUAL.value:      "powerbi_reports",
+    AssetType.DASHBOARD.value:           "dashboards",
+    AssetType.POWERBI_DASHBOARD.value:   "dashboards",
 }
 
 # Complete ordered list of all 19 enterprise buckets — always present in output.
@@ -99,9 +133,13 @@ ENTERPRISE_BUCKETS: List[str] = [
 _CRITICAL_TYPES: frozenset[str] = frozenset({
     AssetType.TABLE.value,
     AssetType.DATABASE.value,
+    AssetType.DATABASE_TABLE.value,
     AssetType.DELTA_TABLE.value,
+    AssetType.DELTA_LIVE_TABLE.value,
     AssetType.SEMANTIC_MODEL.value,
+    AssetType.POWERBI_DATASET.value,
     AssetType.PIPELINE.value,
+    AssetType.ADF_PIPELINE.value,
 })
 
 

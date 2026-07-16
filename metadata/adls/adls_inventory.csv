@@ -1,0 +1,6 @@
+FileName,Container,Folder,Format,Description,BronzeTable
+DimCustomer.parquet,landing,/landing,parquet,Customer dimension table with segmentation and lifetime revenue attributes,bronze.dim_customer
+DimProduct.parquet,landing,/landing,parquet,Product dimension table including category and subcategory hierarchy,bronze.dim_product
+DimDate.parquet,landing,/landing,parquet,Date dimension table used as the standard calendar across all fact tables,bronze.dim_date
+DimSalesTerritory.parquet,landing,/landing,parquet,Sales territory dimension covering geographic regions and territory groups,bronze.dim_sales_territory
+FactInternetSales.parquet,landing,/landing,parquet,Internet sales fact table containing order-level transaction records,bronze.fact_internet_sales

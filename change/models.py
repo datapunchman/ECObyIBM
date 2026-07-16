@@ -115,6 +115,44 @@ class EnterpriseChangeAnalysis:
     summary:
         Human-readable impact summary listing per-system counts, suitable
         for display or as context for a downstream AI reasoning step.
+
+    Typed impact buckets (Phase 6 — Enterprise Graph Traversal)
+    -----------------------------------------------------------
+    Each bucket contains the subset of *impacted_assets* matching that type.
+    All buckets are always present, even when empty.
+
+    systems_impacted:
+        Sorted list of distinct :class:`~graph.models.SystemType` value
+        strings found in the impact set.
+    databricks_notebooks:
+        Assets of type ``DATABRICKS_NOTEBOOK`` or ``NOTEBOOK``.
+    databricks_pipelines:
+        Assets of type ``PIPELINE``, ``ADF_PIPELINE``, or ``FABRIC_PIPELINE``.
+    workflow_tasks:
+        Assets of type ``PIPELINE_TASK``.
+    sql_views:
+        Assets of type ``SQL_VIEW`` or ``VIEW``.
+    sql_procedures:
+        Assets of type ``STORED_PROCEDURE``.
+    sql_functions:
+        Assets of type ``SQL_FUNCTION`` or ``FUNCTION``.
+    adls_files:
+        Assets of type ``ADLS_FILE``.
+    powerbi_reports:
+        Assets of type ``REPORT``, ``POWERBI_REPORT``, ``VISUAL``, or
+        ``POWERBI_VISUAL``.
+    semantic_models:
+        Assets of type ``SEMANTIC_MODEL``, ``POWERBI_DATASET``,
+        ``MEASURE``, or ``POWERBI_MEASURE``.
+    executive_summary:
+        Short prose summary of the change and its overall impact,
+        suitable for a non-technical stakeholder.
+    deployment_plan:
+        Ordered list of deployment step strings.
+    validation_checklist:
+        List of post-deployment validation items.
+    rollback_plan:
+        Step-by-step instructions to revert the change.
     """
 
     change_request: ChangeRequest
@@ -124,3 +162,21 @@ class EnterpriseChangeAnalysis:
     system_breakdown: Dict[str, List[Asset]]
     dependency_paths: List[List[str]]
     summary: str
+
+    # ── Phase 6: typed impact buckets ────────────────────────────────────
+    systems_impacted:      List[str]        = field(default_factory=list)
+    databricks_notebooks:  List[Asset]      = field(default_factory=list)
+    databricks_pipelines:  List[Asset]      = field(default_factory=list)
+    workflow_tasks:        List[Asset]      = field(default_factory=list)
+    sql_views:             List[Asset]      = field(default_factory=list)
+    sql_procedures:        List[Asset]      = field(default_factory=list)
+    sql_functions:         List[Asset]      = field(default_factory=list)
+    adls_files:            List[Asset]      = field(default_factory=list)
+    powerbi_reports:       List[Asset]      = field(default_factory=list)
+    semantic_models:       List[Asset]      = field(default_factory=list)
+
+    # ── Phase 6: prose / plan fields ─────────────────────────────────────
+    executive_summary:     str              = field(default="")
+    deployment_plan:       List[str]        = field(default_factory=list)
+    validation_checklist:  List[str]        = field(default_factory=list)
+    rollback_plan:         List[str]        = field(default_factory=list)
