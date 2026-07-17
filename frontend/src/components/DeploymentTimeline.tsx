@@ -44,7 +44,7 @@ const DeploymentTimeline: React.FC<DeploymentTimelineProps> = ({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "0.7rem",
+                    fontSize: "0.9rem",
                     fontWeight: 700,
                     flexShrink: 0,
                   }}

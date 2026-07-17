@@ -60,14 +60,48 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from functools import lru_cache
 from typing import Any, Dict
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
-except ImportError:
-    pass  # python-dotenv not installed — rely on shell environment
+
+    # ------------------------------------------------------------------
+    # TEMP DIAGNOSTIC LOGGING — remove after .env issue is resolved.
+    # Uses print(file=sys.stderr) because logging is not configured yet
+    # at this point in module import (basicConfig runs further below).
+    # ------------------------------------------------------------------
+    try:
+        from dotenv import find_dotenv
+        _diag_dotenv_path = find_dotenv()  # same search dotenv performs
+    except Exception as _diag_exc:  # noqa: BLE001
+        _diag_dotenv_path = f"<find_dotenv failed: {_diag_exc}>"
+    print(
+        "[ENGINE-DIAG] immediately after load_dotenv():\n"
+        f"[ENGINE-DIAG]   cwd                 = {os.getcwd()}\n"
+        f"[ENGINE-DIAG]   engine.py           = {os.path.abspath(__file__)}\n"
+        f"[ENGINE-DIAG]   sys.executable      = {sys.executable}\n"
+        f"[ENGINE-DIAG]   .env search result  = {_diag_dotenv_path!r}\n"
+        f"[ENGINE-DIAG]   .env exists         = {bool(_diag_dotenv_path) and os.path.isfile(str(_diag_dotenv_path))}\n"
+        f"[ENGINE-DIAG]   cwd/.env exists     = {os.path.isfile(os.path.join(os.getcwd(), '.env'))}\n"
+        f"[ENGINE-DIAG]   IBM_API_KEY set     = {os.environ.get('IBM_API_KEY') is not None}\n"
+        f"[ENGINE-DIAG]   IBM_PROJECT_ID set  = {os.environ.get('IBM_PROJECT_ID') is not None}\n"
+        f"[ENGINE-DIAG]   IBM_URL set         = {os.environ.get('IBM_URL') is not None}",
+        file=sys.stderr,
+        flush=True,
+    )
+except ImportError as _imp_exc:
+    # TEMP DIAGNOSTIC — the silent swallow here is a prime suspect: if dotenv
+    # fails to import in THIS interpreter, .env is never loaded and no one knows.
+    print(
+        f"[ENGINE-DIAG] python-dotenv IMPORT FAILED — .env NOT loaded: {_imp_exc}\n"
+        f"[ENGINE-DIAG]   sys.executable = {sys.executable}\n"
+        f"[ENGINE-DIAG]   cwd            = {os.getcwd()}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -142,6 +176,23 @@ def health() -> Dict[str, Any]:
         "IBM_URL": bool(os.environ.get("IBM_URL")),
     }
     ibm_configured = all(ibm_vars.values())
+
+    # TEMP DIAGNOSTIC LOGGING — remove after .env issue is resolved.
+    # This is the ONLY place in engine.py that reads the IBM_* variables.
+    # They are read lazily at request time (here), never at import time,
+    # and engine.py never writes/overwrites them.
+    logger.info(
+        "[ENGINE-DIAG] /analyze/health credential read (request time): "
+        "cwd=%s | IBM_API_KEY is None=%s | IBM_PROJECT_ID is None=%s | "
+        "IBM_URL is None=%s | raw lens: key=%d proj=%d url=%d",
+        os.getcwd(),
+        os.environ.get("IBM_API_KEY") is None,
+        os.environ.get("IBM_PROJECT_ID") is None,
+        os.environ.get("IBM_URL") is None,
+        len(os.environ.get("IBM_API_KEY") or ""),
+        len(os.environ.get("IBM_PROJECT_ID") or ""),
+        len(os.environ.get("IBM_URL") or ""),
+    )
 
     overall = "ok" if (metadata_ok and ibm_configured) else "degraded"
     return {

@@ -6,6 +6,19 @@
   padding: 0;
 }
 
+:root {
+  --eco-bg: #070b14;
+  --eco-card: #111827;
+  --eco-blue: #0f62fe;
+  --eco-blue-soft: #4da3ff;
+  --eco-purple: #8b5cf6;
+  --eco-cyan: #22d3ee;
+  --eco-danger: #ef4444;
+  --eco-success: #10b981;
+  --eco-border: rgba(148, 163, 184, 0.1);
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -14,13 +27,122 @@ body,
 
 body {
   font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  background: var(--eco-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* React Flow — keep base styles clean */
+/* ── React Flow dark chrome ─────────────────────────────────────────── */
 .react-flow__attribution {
   display: none;
+}
+.react-flow__controls {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid var(--eco-border);
+  border-radius: 10px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(2, 6, 17, 0.5);
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid var(--eco-border) !important;
+  fill: rgba(248, 250, 252, 0.7);
+}
+.react-flow__controls-button svg {
+  fill: rgba(248, 250, 252, 0.7);
+}
+.react-flow__controls-button:hover {
+  background: rgba(15, 98, 254, 0.18) !important;
+}
+.react-flow__minimap {
+  background: rgba(17, 24, 39, 0.85) !important;
+  border: 1px solid var(--eco-border);
+  border-radius: 10px;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+}
+
+/* animated glowing edge dash flow */
+.react-flow__edge-path {
+  transition: stroke 200ms, stroke-width 200ms, filter 200ms;
+}
+.eco-edge-flow .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+  animation: eco-dash 1.1s linear infinite;
+}
+@keyframes eco-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* ── imperative hover-path highlight (no React re-render) ─────────── */
+.react-flow__node,
+.react-flow__edge {
+  transition: opacity 250ms ease;
+}
+.react-flow__node.eco-dim,
+.react-flow__edge.eco-dim {
+  opacity: 0.15;
+}
+.react-flow__node.eco-lit .eco-card {
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.45),
+    0 6px 18px rgba(2, 6, 17, 0.5) !important;
+}
+.react-flow__edge.eco-lit .react-flow__edge-path {
+  stroke: #22d3ee !important;
+  stroke-width: 2.4 !important;
+  filter: drop-shadow(0 0 5px #22d3ee);
+}
+
+/* ── ambient keyframes ─────────────────────────────────────────────── */
+@keyframes eco-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+@keyframes eco-glow-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+@keyframes eco-gradient-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eco-edge-flow .react-flow__edge-path {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Scrollbar */
@@ -32,9 +154,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #dde1e6;
+  background: rgba(148, 163, 184, 0.25);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8d8d8d;
+  background: rgba(148, 163, 184, 0.45);
 }

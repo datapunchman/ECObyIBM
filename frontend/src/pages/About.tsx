@@ -64,7 +64,7 @@ const About: React.FC = () => (
                     sx={{
                       fontWeight: 600,
                       color: "text.primary",
-                      fontSize: "0.8125rem",
+                      fontSize: "1.04rem",
                       width: 160,
                       borderBottom: "1px solid",
                       borderColor: "divider",
@@ -75,7 +75,7 @@ const About: React.FC = () => (
                   <TableCell
                     sx={{
                       color: "text.secondary",
-                      fontSize: "0.8125rem",
+                      fontSize: "1.04rem",
                       borderBottom: "1px solid",
                       borderColor: "divider",
                     }}
@@ -85,7 +85,7 @@ const About: React.FC = () => (
                   <TableCell
                     sx={{
                       color: "text.disabled",
-                      fontSize: "0.75rem",
+                      fontSize: "0.96rem",
                       borderBottom: "1px solid",
                       borderColor: "divider",
                       textAlign: "right",
@@ -113,7 +113,7 @@ const About: React.FC = () => (
                   bgcolor: method === "POST" ? "#0043ce" : "#005d5d",
                   color: "#fff",
                   fontWeight: 700,
-                  fontSize: "0.65rem",
+                  fontSize: "0.875rem",
                   letterSpacing: "0.04em",
                   borderRadius: 1,
                   minWidth: 44,
@@ -166,7 +166,7 @@ const About: React.FC = () => (
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
-                    fontSize: "0.65rem",
+                    fontSize: "0.875rem",
                     fontWeight: 700,
                     color: "#0043ce",
                   }}
@@ -211,7 +211,7 @@ const About: React.FC = () => (
               variant="body2"
               sx={{
                 fontFamily: '"IBM Plex Mono", monospace',
-                fontSize: "0.78rem",
+                fontSize: "1.0rem",
                 color: line.startsWith("#") ? "#697077" : "#161616",
                 lineHeight: 1.8,
                 whiteSpace: "pre",

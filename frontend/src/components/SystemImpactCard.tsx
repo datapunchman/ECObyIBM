@@ -74,7 +74,7 @@ const SystemImpactCard: React.FC<SystemImpactCardProps> = ({ system, items }) =>
             variant="outlined"
             sx={{
               fontFamily: '"IBM Plex Mono", monospace',
-              fontSize: "0.72rem",
+              fontSize: "0.92rem",
               borderColor: cfg.color,
               color: cfg.color,
               borderRadius: 1,

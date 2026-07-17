@@ -1,114 +1,144 @@
 import { createTheme } from "@mui/material/styles";
 
-// IBM design system palette
-const IBM_BLUE = "#0f62fe";
-const IBM_BLUE_DARK = "#0043ce";
-const IBM_BLUE_LIGHT = "#d0e2ff";
-const COOL_GRAY_10 = "#f2f4f8";
-const COOL_GRAY_20 = "#dde1e6";
-const COOL_GRAY_60 = "#697077";
-const COOL_GRAY_100 = "#121619";
-const WHITE = "#ffffff";
-const RED_60 = "#da1e28";
-const ORANGE_40 = "#ff832b";
-const GREEN_40 = "#42be65";
-const YELLOW_20 = "#f1c21b";
+// ─────────────────────────────────────────────────────────────────────────────
+// ECO design tokens — dark-only "Enterprise AI OS"
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const T = {
+  bg:      "#070B14",
+  card:    "#111827",
+  cardUp:  "#161F2E",
+  border:  "rgba(148, 163, 184, 0.10)",
+  borderUp:"rgba(148, 163, 184, 0.18)",
+  blue:    "#0F62FE",
+  blueSoft:"#4DA3FF",
+  purple:  "#8B5CF6",
+  cyan:    "#22D3EE",
+  danger:  "#EF4444",
+  success: "#10B981",
+  amber:   "#F59E0B",
+  text:    "#F8FAFC",
+  textDim: "rgba(248, 250, 252, 0.60)",
+  textMute:"rgba(248, 250, 252, 0.38)",
+  mono:    '"IBM Plex Mono", ui-monospace, monospace',
+  sans:    '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif',
+  /** glass surface */
+  glass: {
+    background: "linear-gradient(160deg, rgba(17,24,39,0.86) 0%, rgba(17,24,39,0.62) 100%)",
+    backdropFilter: "blur(18px) saturate(140%)",
+    border: "1px solid rgba(148,163,184,0.10)",
+    boxShadow: "0 8px 32px rgba(2,6,17,0.55), inset 0 1px 0 rgba(255,255,255,0.04)",
+  },
+  ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+} as const;
+
+export const SYSTEM_HUES: Record<string, string> = {
+  database:   T.purple,
+  sql:        T.cyan,
+  databricks: "#F97316",
+  pipeline:   T.blue,
+  powerbi:    "#E879F9",
+  api:        T.success,
+};
+
+export const RISK_HUES: Record<string, string> = {
+  low:      T.success,
+  medium:   T.amber,
+  high:     "#F97316",
+  critical: T.danger,
+};
 
 export const theme = createTheme({
   palette: {
-    mode: "light",
-    primary: {
-      main: IBM_BLUE,
-      dark: IBM_BLUE_DARK,
-      light: IBM_BLUE_LIGHT,
-      contrastText: WHITE,
-    },
-    secondary: {
-      main: COOL_GRAY_60,
-    },
-    background: {
-      default: COOL_GRAY_10,
-      paper: WHITE,
-    },
-    text: {
-      primary: COOL_GRAY_100,
-      secondary: COOL_GRAY_60,
-    },
-    error: { main: RED_60 },
-    warning: { main: ORANGE_40 },
-    success: { main: GREEN_40 },
-    divider: COOL_GRAY_20,
+    mode: "dark",
+    primary:   { main: T.blue, light: T.blueSoft, dark: "#0043CE", contrastText: "#fff" },
+    secondary: { main: T.purple },
+    info:      { main: T.cyan },
+    error:     { main: T.danger },
+    success:   { main: T.success },
+    warning:   { main: T.amber },
+    background: { default: T.bg, paper: T.card },
+    text: { primary: T.text, secondary: T.textDim, disabled: T.textMute },
+    divider: T.border,
   },
   typography: {
-    fontFamily: '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif',
-    h1: { fontWeight: 600, letterSpacing: "-0.02em" },
-    h2: { fontWeight: 600, letterSpacing: "-0.01em" },
-    h3: { fontWeight: 600 },
-    h4: { fontWeight: 500 },
-    h5: { fontWeight: 500 },
-    h6: { fontWeight: 500 },
-    body1: { fontSize: "0.9375rem", lineHeight: 1.6 },
-    body2: { fontSize: "0.875rem", lineHeight: 1.5 },
-    caption: { color: COOL_GRAY_60 },
-    overline: { letterSpacing: "0.1em", fontWeight: 500, color: COOL_GRAY_60 },
+    fontFamily: T.sans,
+    h1: { fontWeight: 700, letterSpacing: "-0.03em" },
+    h2: { fontWeight: 700, letterSpacing: "-0.02em" },
+    h3: { fontWeight: 600, letterSpacing: "-0.02em" },
+    h4: { fontWeight: 600, letterSpacing: "-0.01em" },
+    h5: { fontWeight: 600 },
+    h6: { fontWeight: 600 },
+    body1: { fontSize: "1.2rem", lineHeight: 1.6 },
+    body2: { fontSize: "1.09rem", lineHeight: 1.55 },
+    caption: { color: T.textDim },
+    overline: { letterSpacing: "0.14em", fontWeight: 600, color: T.textDim, fontSize: "0.875rem" },
   },
-  shape: { borderRadius: 2 },
-  shadows: [
-    "none",
-    "0 1px 2px rgba(0,0,0,0.07)",
-    "0 1px 4px rgba(0,0,0,0.10)",
-    "0 2px 8px rgba(0,0,0,0.10)",
-    "0 4px 12px rgba(0,0,0,0.10)",
-    "0 8px 24px rgba(0,0,0,0.10)",
-    ...Array(19).fill("none"),
-  ] as ReturnType<typeof createTheme>["shadows"],
+  shape: { borderRadius: 12 },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: { backgroundColor: T.bg },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: "none",
-          fontWeight: 500,
-          borderRadius: 2,
+          fontWeight: 600,
+          fontSize: "1.05rem",
+          borderRadius: 10,
+          transition: "transform 180ms cubic-bezier(0.16,1,0.3,1), box-shadow 180ms",
+          "&:hover": { transform: "translateY(-1px)" },
+          "&:active": { transform: "translateY(0)" },
         },
         containedPrimary: {
-          "&:hover": { backgroundColor: IBM_BLUE_DARK },
+          boxShadow: "0 4px 20px rgba(15,98,254,0.35)",
+          "&:hover": { boxShadow: "0 6px 28px rgba(15,98,254,0.5)", backgroundColor: "#2D7BFE" },
         },
+        outlined: { borderColor: T.borderUp },
       },
     },
     MuiPaper: {
       styleOverrides: {
-        root: { backgroundImage: "none" },
+        root: {
+          backgroundImage: "none",
+          backgroundColor: T.card,
+          border: `1px solid ${T.border}`,
+        },
+        outlined: { borderColor: T.border },
       },
     },
     MuiChip: {
       styleOverrides: {
-        root: { borderRadius: 2, fontWeight: 500 },
+        root: { borderRadius: 8, fontWeight: 500 },
       },
     },
-    MuiTableCell: {
+    MuiTooltip: {
       styleOverrides: {
-        head: { fontWeight: 600, backgroundColor: COOL_GRAY_10 },
-      },
-    },
-    MuiAlert: {
-      styleOverrides: {
-        root: { borderRadius: 2 },
+        tooltip: {
+          backgroundColor: "rgba(17,24,39,0.95)",
+          border: `1px solid ${T.borderUp}`,
+          backdropFilter: "blur(12px)",
+          fontSize: "0.95rem",
+        },
       },
     },
     MuiLinearProgress: {
+      styleOverrides: { root: { borderRadius: 4, height: 3, backgroundColor: "rgba(148,163,184,0.12)" } },
+    },
+    MuiAccordion: {
       styleOverrides: {
-        root: { borderRadius: 2, height: 3 },
+        root: {
+          backgroundColor: "transparent",
+          backgroundImage: "none",
+          "&:before": { display: "none" },
+        },
       },
     },
   },
-  // expose custom risk colours so components can use them without hardcoding
   custom: {
-    risk: {
-      low: GREEN_40,
-      medium: YELLOW_20,
-      high: ORANGE_40,
-      critical: RED_60,
-    },
+    risk: RISK_HUES,
   },
 });
 

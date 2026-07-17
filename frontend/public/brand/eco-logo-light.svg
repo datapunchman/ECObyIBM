@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" fill="none">
+  <!-- ECO lockup — light version (for white / light surfaces) -->
+  <g transform="translate(24,28) scale(1)">
+    <path d="M 44.31 47.76 A 20 20 0 1 1 44.31 16.24" stroke="#0F62FE" stroke-width="5.5" stroke-linecap="round"/>
+    <line x1="24" y1="23" x2="36" y2="23" stroke="#0F62FE" stroke-width="5.5" stroke-linecap="round"/>
+    <line x1="24" y1="32" x2="40" y2="32" stroke="#0F62FE" stroke-width="5.5" stroke-linecap="round"/>
+    <line x1="24" y1="41" x2="36" y2="41" stroke="#0F62FE" stroke-width="5.5" stroke-linecap="round"/>
+    <circle cx="44.31" cy="16.24" r="3.4" fill="#0043CE"/>
+    <circle cx="40" cy="32" r="3.4" fill="#0043CE"/>
+    <circle cx="44.31" cy="47.76" r="3.4" fill="#0043CE"/>
+  </g>
+  <text x="104" y="62" font-family="IBM Plex Sans, system-ui, sans-serif" font-weight="600" font-size="34" letter-spacing="10" fill="#121619">ECO</text>
+  <text x="104" y="86" font-family="IBM Plex Sans, system-ui, sans-serif" font-weight="400" font-size="10.5" letter-spacing="3.4" fill="#121619" fill-opacity="0.55">ENTERPRISE CHANGE ORCHESTRATOR</text>
+</svg>

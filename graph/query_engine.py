@@ -47,13 +47,12 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict, deque
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from graph.enterprise_graph import EnterpriseGraph
 from graph.models import Asset, SystemType
 
 logger = logging.getLogger(__name__)
-
 
 class EnterpriseQueryEngine:
     """Graph traversal engine for impact analysis over an
@@ -137,6 +136,22 @@ class EnterpriseQueryEngine:
         visited_ids = self._bfs(asset_id, self._reverse)
         return self._resolve(visited_ids)
 
+    def find_downstream_with_depth(self, asset_id: str) -> List[Tuple[Asset, int]]:
+        """Like :meth:`find_downstream`, but each asset is paired with its
+        BFS depth (number of hops from *asset_id*, starting at 1).
+
+        Complexity: O(V + E)
+        """
+        return self._resolve_with_depth(self._bfs_with_depth(asset_id, self._forward))
+
+    def find_upstream_with_depth(self, asset_id: str) -> List[Tuple[Asset, int]]:
+        """Like :meth:`find_upstream`, but each asset is paired with its
+        BFS depth (number of hops from *asset_id*, starting at 1).
+
+        Complexity: O(V + E)
+        """
+        return self._resolve_with_depth(self._bfs_with_depth(asset_id, self._reverse))
+
     def find_full_impact(self, asset_id: str) -> Dict[str, object]:
         """Return the complete downstream impact grouped by enterprise system.
 
@@ -182,12 +197,22 @@ class EnterpriseQueryEngine:
         return result
 
     def find_dependency_paths(self, asset_id: str) -> List[List[str]]:
-        """Return all root-to-leaf dependency paths starting from *asset_id*.
+        """Return root-to-leaf dependency paths starting from *asset_id*.
 
         Each path is a list of asset IDs beginning with *asset_id* and
         ending at a leaf (an asset with no outgoing edges in the forward
-        graph).  Cycles are broken by refusing to revisit an ID that already
-        appears in the current path.
+        graph, or one whose onward neighbours have all been explored).
+
+        Cycle safety
+        ------------
+        A **global** expanded set guarantees every node is pushed onto the
+        DFS stack at most once, so the traversal is O(V + E) and terminates
+        on cyclic graphs.  (The previous per-path-only cycle guard kept each
+        individual path finite but enumerated *every* distinct simple path —
+        combinatorially explosive once the FEEDS/bridge edges introduced
+        cycles and dense fan-out.)  Consequence: for diamond-shaped DAGs only
+        one representative path through each node is returned, not every
+        alternative routing.
 
         This iterative DFS uses an explicit stack of ``(current_id, path)``
         tuples, avoiding recursion and Python's call-stack limit.
@@ -200,42 +225,58 @@ class EnterpriseQueryEngine:
         Returns
         -------
         list[list[str]]
-            All distinct root-to-leaf paths as lists of asset ID strings.
+            Root-to-leaf paths as lists of asset ID strings.
             Returns ``[[asset_id]]`` when the asset has no downstream
             neighbours (i.e. it is already a leaf).
 
-        Complexity: O(V * P) where P is the number of distinct paths.
-        For typical sparse enterprise DAGs this is effectively O(V + E).
+        Complexity: O(V + E) — each node is expanded at most once.
         """
         if asset_id not in self._graph.assets and not self._forward.get(asset_id):
             logger.debug("find_dependency_paths: asset '%s' not found", asset_id)
             return []
 
         completed_paths: List[List[str]] = []
+        # Global guard: every node is pushed onto the stack at most once.
+        # Marked BEFORE pushing so cycles / diamonds cannot re-enqueue a node.
+        expanded: Set[str] = {asset_id}
         # Stack entries: (current_node_id, path_so_far)
         stack: deque[tuple[str, List[str]]] = deque()
         stack.append((asset_id, [asset_id]))
+        visit_count = 0
 
         while stack:
             current_id, path = stack.pop()
+            visit_count += 1
+            if visit_count % 100 == 0:
+                logger.info(
+                    "find_dependency_paths: %d nodes visited, %d paths completed, "
+                    "stack depth=%d",
+                    visit_count, len(completed_paths), len(stack),
+                )
             neighbours = self._forward.get(current_id, [])
 
-            if not neighbours:
-                # Leaf node — record this complete path
-                completed_paths.append(path)
-                continue
-
+            extended = False
             for neighbour_id in neighbours:
-                # Cycle guard: do not revisit any node already in this path
-                if neighbour_id in path:
+                if neighbour_id in expanded:
+                    # Cycle or already-explored branch — do not re-expand.
                     logger.debug(
-                        "Cycle detected: '%s' already in path — skipping",
+                        "find_dependency_paths: '%s' already expanded — skipping",
                         neighbour_id,
                     )
-                    completed_paths.append(path)  # treat loop-back as a leaf
                     continue
+                expanded.add(neighbour_id)  # mark visited BEFORE pushing
                 stack.append((neighbour_id, path + [neighbour_id]))
+                extended = True
 
+            if not extended:
+                # Leaf node, or every onward edge cycles back / was explored —
+                # record this path exactly once.
+                completed_paths.append(path)
+
+        logger.debug(
+            "find_dependency_paths: done — %d nodes visited, %d paths",
+            visit_count, len(completed_paths),
+        )
         return completed_paths
 
     # ------------------------------------------------------------------
@@ -263,9 +304,16 @@ class EnterpriseQueryEngine:
         visited: Set[str] = {start_id}
         queue: deque[str] = deque([start_id])
         ordered: List[str] = []
+        visit_count = 0
 
         while queue:
             current = queue.popleft()
+            visit_count += 1
+            if visit_count % 100 == 0:
+                logger.info(
+                    "_bfs: %d nodes visited, queue depth=%d (start=%r)",
+                    visit_count, len(queue), start_id,
+                )
             for neighbour in adjacency.get(current, []):
                 if neighbour not in visited:
                     visited.add(neighbour)
@@ -273,6 +321,49 @@ class EnterpriseQueryEngine:
                     ordered.append(neighbour)
 
         return ordered
+
+    def _bfs_with_depth(
+        self, start_id: str, adjacency: Dict[str, List[str]]
+    ) -> List[Tuple[str, int]]:
+        """Iterative BFS like :meth:`_bfs`, but returns ``(id, depth)`` pairs.
+
+        Depth is the number of hops from *start_id* (first neighbours = 1).
+        Same visited-before-enqueue discipline — terminates on cyclic graphs.
+        """
+        visited: Set[str] = {start_id}
+        queue: deque[Tuple[str, int]] = deque([(start_id, 0)])
+        ordered: List[Tuple[str, int]] = []
+        visit_count = 0
+
+        while queue:
+            current, depth = queue.popleft()
+            visit_count += 1
+            if visit_count % 100 == 0:
+                logger.info(
+                    "_bfs_with_depth: %d nodes visited, queue depth=%d (start=%r)",
+                    visit_count, len(queue), start_id,
+                )
+            for neighbour in adjacency.get(current, []):
+                if neighbour not in visited:
+                    visited.add(neighbour)
+                    queue.append((neighbour, depth + 1))
+                    ordered.append((neighbour, depth + 1))
+
+        return ordered
+
+    def _resolve_with_depth(
+        self, pairs: List[Tuple[str, int]]
+    ) -> List[Tuple[Asset, int]]:
+        """Resolve ``(id, depth)`` pairs to ``(Asset, depth)``; dangling IDs
+        are silently skipped like :meth:`_resolve`."""
+        out: List[Tuple[Asset, int]] = []
+        for aid, depth in pairs:
+            asset = self._graph.assets.get(aid)
+            if asset is not None:
+                out.append((asset, depth))
+            else:
+                logger.debug("_resolve_with_depth: asset id '%s' not found in graph", aid)
+        return out
 
     def _resolve(self, asset_ids: List[str]) -> List[Asset]:
         """Resolve a list of asset IDs to :class:`~graph.models.Asset` objects.

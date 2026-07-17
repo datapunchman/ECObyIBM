@@ -59,7 +59,7 @@ const AssetNode: React.FC<{ data: AssetNodeData }> = ({ data }) => {
         sx={{
           mb: 0.5,
           height: 16,
-          fontSize: "0.62rem",
+          fontSize: "0.875rem",
           fontWeight: 600,
           bgcolor: cfg.border,
           color: "#fff",
@@ -72,13 +72,13 @@ const AssetNode: React.FC<{ data: AssetNodeData }> = ({ data }) => {
         sx={{
           fontWeight: 600,
           color: cfg.text,
-          fontSize: "0.8125rem",
+          fontSize: "1.04rem",
           wordBreak: "break-word",
         }}
       >
         {data.label}
       </Typography>
-      <Typography variant="caption" sx={{ color: "#697077", fontSize: "0.7rem" }}>
+      <Typography variant="caption" sx={{ color: "#697077", fontSize: "0.9rem" }}>
         {data.system}
       </Typography>
     </Paper>

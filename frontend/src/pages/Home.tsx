@@ -1,276 +1,267 @@
-import React, { useState, useRef } from "react";
+/**
+ * Home — the ECO command surface.
+ *
+ * One input, three KPI pulses, ambient enterprise graph, recent analyses.
+ * Clicking Analyze launches the cinematic AIThinking sequence and lands on
+ * the Mission Control analysis page.
+ */
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Chip,
-  Grid,
-  Divider,
-} from "@mui/material";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
-import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
-import BoltOutlinedIcon from "@mui/icons-material/BoltOutlined";
-import { LoadingOverlay } from "@/components";
-import { useAnalysis } from "@/hooks/useAnalysis";
+import { Box, Typography, TextField, Button, Chip } from "@mui/material";
+import { motion } from "framer-motion";
+import { ArrowRight, Sparkles, Clock } from "lucide-react";
+import { T } from "@/assets/theme";
+import { GlassCard } from "@/components/ui";
+import DataEstate from "@/components/DataEstate";
+import ParticleBackground from "@/components/ParticleBackground";
+import AIThinking from "@/components/AIThinking";
+import type { V2AnalysisResult } from "@/types";
 
-const EXAMPLE_REQUESTS = [
-  "Rename Customer_ID to Client_ID in the Customers table",
+const EXAMPLES = [
+  "Rename Customer_ID to Client_ID",
   "Remove the DOB column from Customers",
   "Drop the SalesTerritory table",
-  "Add a new NetRevenue column to sales_dashboard",
-  "Rename the Revenue column in sales_dashboard to GrossRevenue",
 ];
 
-const FEATURE_TILES = [
-  {
-    Icon: ShieldOutlinedIcon,
-    title: "Risk Assessment",
-    body: "Automatic risk scoring based on downstream dependency count and production report impact.",
-  },
-  {
-    Icon: AccountTreeOutlinedIcon,
-    title: "Dependency Graph",
-    body: "Visual map of every artifact affected across Database, Databricks, and Power BI layers.",
-  },
-  {
-    Icon: BoltOutlinedIcon,
-    title: "Granite AI",
-    body: "IBM Granite generates deployment plans, validation checklists, and rollback instructions.",
-  },
-];
+interface RecentEntry {
+  request: string;
+  at: string;
+  assets: number;
+  risk: string;
+}
+
+function loadRecents(): RecentEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem("eco:recents") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function pushRecent(entry: RecentEntry) {
+  const list = [entry, ...loadRecents().filter((r) => r.request !== entry.request)].slice(0, 5);
+  try { localStorage.setItem("eco:recents", JSON.stringify(list)); } catch { /* ignore */ }
+}
+
+const RISK_COLOR: Record<string, string> = {
+  low: T.success, medium: T.amber, high: "#F97316", critical: T.danger,
+};
 
 const Home: React.FC = () => {
   const [request, setRequest] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [apiDone, setApiDone] = useState(false);
+  const [pending, setPending] = useState<{ result: V2AnalysisResult; request: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [recents, setRecents] = useState<RecentEntry[]>([]);
   const navigate = useNavigate();
-  const { analyze, status } = useAnalysis();
-  const resultRef = useRef<AnalysisResult | null>(null);
 
-  const handleAnalyze = async () => {
-    if (!request.trim()) return;
-    const result = await (async () => {
+  useEffect(() => setRecents(loadRecents()), []);
+
+  const handleAnalyze = async (text?: string) => {
+    const req = (text ?? request).trim();
+    if (!req) return;
+    setError(null);
+    setThinking(true);
+    setApiDone(false);
+    try {
       const { AnalysisService } = await import("@/services");
-      return AnalysisService.analyzeV2({ request, change_type: "unknown" });
-    })();
-    resultRef.current = result as unknown as AnalysisResult;
-    void analyze; // suppress unused warning — navigation carries the result via state
-    navigate("/analysis", { state: { result, request } });
+      const result = (await AnalysisService.analyzeV2({
+        request: req,
+        change_type: "unknown",
+      })) as unknown as V2AnalysisResult;
+      pushRecent({
+        request: req,
+        at: new Date().toISOString(),
+        assets: result.graph_analysis.metrics.total_assets,
+        risk: result.llm_summary.risk_level,
+      });
+      setPending({ result, request: req });
+      setApiDone(true); // AIThinking finishes its last stage, then onExited fires
+    } catch (e) {
+      setThinking(false);
+      setError(e instanceof Error ? e.message : "Analysis failed — check that both backend services are running.");
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && e.ctrlKey) void handleAnalyze();
+  const handleThinkingDone = () => {
+    if (pending) navigate("/analysis", { state: pending });
+    setThinking(false);
   };
 
   return (
-    <>
-      <LoadingOverlay open={status === "loading"} />
-
-      {/* Hero */}
+    <Box sx={{ position: "relative", minHeight: "calc(100vh - 48px)", overflow: "hidden" }}>
+      {/* ambient graph background */}
+      <Box sx={{ position: "absolute", inset: 0, opacity: 0.55 }}>
+        <ParticleBackground density={0.5} linkDistance={150} />
+      </Box>
+      {/* animated mesh */}
       <Box
+        aria-hidden
         sx={{
-          bgcolor: "#161616",
-          borderBottom: "1px solid #393939",
-          px: 0,
-          pt: { xs: 8, md: 10 },
-          pb: { xs: 7, md: 9 },
+          position: "absolute", inset: "-30%",
+          background:
+            `radial-gradient(38% 45% at 25% 28%, ${T.blue}14 0%, transparent 100%),` +
+            `radial-gradient(34% 40% at 76% 60%, ${T.purple}10 0%, transparent 100%),` +
+            `radial-gradient(28% 36% at 55% 15%, ${T.cyan}0d 0%, transparent 100%)`,
+          backgroundSize: "200% 200%",
+          animation: "eco-gradient-pan 32s ease-in-out infinite",
         }}
-      >
-        <Container maxWidth="md">
-          <Chip
-            label="Enterprise Change Intelligence"
-            size="small"
-            sx={{
-              bgcolor: "#0043ce",
-              color: "#fff",
-              fontWeight: 600,
-              fontSize: "0.7rem",
-              letterSpacing: "0.05em",
-              mb: 3,
-              borderRadius: 1,
-            }}
-          />
+      />
 
-          <Typography
-            variant="h2"
-            sx={{
-              color: "#f2f4f8",
-              fontWeight: 700,
-              fontSize: { xs: "2rem", md: "2.75rem" },
-              lineHeight: 1.15,
-              mb: 2,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Understand every downstream
-            <br />
-            impact before deployment.
-          </Typography>
+      <AIThinking open={thinking} done={apiDone} onExited={handleThinkingDone} />
 
-          <Typography
-            variant="body1"
-            sx={{
-              color: "#8d8d8d",
-              maxWidth: 600,
-              mb: 5,
-              lineHeight: 1.7,
-            }}
-          >
-            ECO analyses your proposed data platform change, traverses the full
-            dependency graph, and returns a structured risk assessment — powered
-            by IBM Granite.
-          </Typography>
-
-          {/* Input card */}
-          <Paper
-            sx={{
-              p: 3,
-              bgcolor: "#262626",
-              border: "1px solid #525252",
-              borderRadius: 1,
-            }}
-          >
-            <Typography
-              variant="overline"
-              sx={{ color: "#8d8d8d", display: "block", mb: 1 }}
-            >
-              Describe your proposed change
+      <Box sx={{ position: "relative", maxWidth: 1160, mx: "auto", px: 3, pt: { xs: 7, md: 11 }, pb: 8 }}>
+        <Box sx={{ maxWidth: 860 }}>
+        {/* headline */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: T.ease }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2.5 }}>
+            <Sparkles size={18} color={T.cyan} />
+            <Typography sx={{
+              fontSize: "0.9rem", fontWeight: 600, letterSpacing: "0.18em",
+              textTransform: "uppercase", color: T.cyan,
+            }}>
+              Enterprise Change Intelligence
             </Typography>
+          </Box>
+          <Typography sx={{
+            fontWeight: 700, fontSize: { xs: "2.44rem", md: "3.54rem" },
+            lineHeight: 1.08, letterSpacing: "-0.03em", color: T.text, mb: 4,
+          }}>
+            See every impact.
+            <Box component="span" sx={{
+              display: "block",
+              background: `linear-gradient(90deg, ${T.blueSoft}, ${T.purple}, ${T.cyan})`,
+              backgroundSize: "200% auto",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              animation: "eco-gradient-pan 8s ease-in-out infinite",
+            }}>
+              Before it happens.
+            </Box>
+          </Typography>
+        </motion.div>
 
-            <TextField
-              multiline
-              minRows={3}
-              maxRows={8}
-              fullWidth
-              placeholder={`e.g. "${EXAMPLE_REQUESTS[0]}"`}
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
-              onKeyDown={handleKeyDown}
-              variant="outlined"
-              sx={{
-                mb: 2,
-                "& .MuiOutlinedInput-root": {
-                  bgcolor: "#161616",
-                  color: "#f2f4f8",
-                  fontFamily: '"IBM Plex Mono", monospace',
-                  fontSize: "0.9rem",
-                  "& fieldset": { borderColor: "#393939" },
-                  "&:hover fieldset": { borderColor: "#525252" },
-                  "&.Mui-focused fieldset": { borderColor: "#0f62fe" },
-                },
-              }}
-              inputProps={{ "aria-label": "Change request" }}
-            />
-
-            <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
-              <Typography variant="caption" sx={{ color: "#525252" }}>
-                Ctrl + Enter to submit
-              </Typography>
+        {/* AI input */}
+        <motion.div
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.12, ease: T.ease }}
+        >
+          <Box sx={{
+            ...T.glass, borderRadius: "18px", p: 0.75,
+            transition: "box-shadow 250ms, border-color 250ms",
+            "&:focus-within": {
+              borderColor: `${T.blue}77`,
+              boxShadow: `0 8px 40px rgba(2,6,17,0.6), 0 0 0 3px ${T.blue}22, 0 0 32px ${T.blue}22`,
+            },
+          }}>
+            <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1 }}>
+              <TextField
+                multiline minRows={1} maxRows={5} fullWidth
+                placeholder={`Describe a change — e.g. "${EXAMPLES[0]}"`}
+                value={request}
+                onChange={(e) => setRequest(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleAnalyze(); }
+                }}
+                variant="standard"
+                InputProps={{ disableUnderline: true }}
+                sx={{
+                  px: 2, py: 1.25,
+                  "& .MuiInputBase-input": {
+                    fontFamily: T.mono, fontSize: "1.18rem", color: T.text,
+                    "&::placeholder": { color: T.textMute, opacity: 1 },
+                  },
+                }}
+                inputProps={{ "aria-label": "Change request" }}
+              />
               <Button
                 variant="contained"
-                size="large"
-                endIcon={<ArrowForwardIcon />}
-                disabled={!request.trim() || status === "loading"}
+                disabled={!request.trim() || thinking}
                 onClick={() => void handleAnalyze()}
-                sx={{ px: 4, py: 1.25, fontWeight: 600, minWidth: 180 }}
+                endIcon={<ArrowRight size={19} />}
+                sx={{ m: 0.75, px: 3, py: 1.1, borderRadius: "12px", whiteSpace: "nowrap" }}
               >
-                Analyze Impact
+                Analyze
               </Button>
             </Box>
-          </Paper>
+          </Box>
 
-          {/* Quick examples */}
-          <Box mt={3}>
-            <Typography variant="caption" sx={{ color: "#525252", mr: 1.5 }}>
-              Try:
+          {error && (
+            <Typography sx={{ color: T.danger, fontSize: "1.0rem", mt: 1.5, fontFamily: T.mono }}>
+              {error}
             </Typography>
-            {EXAMPLE_REQUESTS.slice(0, 3).map((ex) => (
+          )}
+
+          {/* examples */}
+          <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}>
+            {EXAMPLES.map((ex) => (
               <Chip
-                key={ex}
-                label={ex}
-                size="small"
-                variant="outlined"
+                key={ex} label={ex} size="small" clickable
                 onClick={() => setRequest(ex)}
                 sx={{
-                  mr: 1,
-                  mb: 0.75,
-                  color: "#8d8d8d",
-                  borderColor: "#393939",
-                  cursor: "pointer",
-                  borderRadius: 1,
-                  fontSize: "0.72rem",
-                  "&:hover": { borderColor: "#0f62fe", color: "#78a9ff" },
+                  fontSize: "0.9rem", fontFamily: T.mono, color: T.textDim,
+                  bgcolor: "rgba(148,163,184,0.06)", border: `1px solid ${T.border}`,
+                  "&:hover": { borderColor: `${T.blueSoft}66`, color: T.blueSoft, bgcolor: `${T.blue}11` },
                 }}
               />
             ))}
           </Box>
-        </Container>
-      </Box>
-
-      {/* Feature tiles */}
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Typography
-          variant="overline"
-          sx={{ color: "text.secondary", display: "block", mb: 3 }}
-        >
-          What ECO gives you
-        </Typography>
-        <Grid container spacing={3}>
-          {FEATURE_TILES.map(({ Icon, title, body }) => (
-            <Grid item xs={12} md={4} key={title}>
-              <Paper
-                variant="outlined"
-                sx={{ p: 3, height: "100%", borderColor: "divider" }}
-              >
-                <Box
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    bgcolor: "#edf5ff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 1,
-                    mb: 2,
-                  }}
-                >
-                  <Icon sx={{ fontSize: 20, color: "#0043ce" }} />
-                </Box>
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 600, mb: 0.75 }}
-                >
-                  {title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {body}
-                </Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-
-        <Divider sx={{ my: 6 }} />
-
-        <Box textAlign="center">
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ maxWidth: 520, mx: "auto" }}
-          >
-            ECO connects your Power BI Semantic Model, Databricks Gold layer,
-            and SQL source into a single impact graph — so you can ship with
-            confidence.
-          </Typography>
+        </motion.div>
         </Box>
-      </Container>
-    </>
+
+        {/* Enterprise Data Estate — the indexed environment (real metadata) */}
+        <Box sx={{ mt: 5 }}>
+          <DataEstate />
+        </Box>
+
+        {/* recent analyses */}
+        {recents.length > 0 && (
+          <Box sx={{ mt: 5 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+              <Clock size={16} color={T.textMute as string} />
+              <Typography sx={{
+                fontSize: "0.875rem", fontWeight: 600, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: T.textMute,
+              }}>
+                Recent analyses
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {recents.map((r, i) => (
+                <GlassCard
+                  key={r.request} delay={i * 0.06}
+                  onClick={() => { setRequest(r.request); void handleAnalyze(r.request); }}
+                  sx={{ py: 1.5, px: 2, display: "flex", alignItems: "center", gap: 2 }}
+                >
+                  <Box sx={{
+                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                    bgcolor: RISK_COLOR[r.risk] ?? T.textMute,
+                    boxShadow: `0 0 8px ${RISK_COLOR[r.risk] ?? "transparent"}`,
+                  }} />
+                  <Typography sx={{
+                    fontFamily: T.mono, fontSize: "1.02rem", color: T.textDim, flex: 1,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {r.request}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.9rem", color: T.textMute, flexShrink: 0 }}>
+                    {r.assets} assets
+                  </Typography>
+                  <ArrowRight size={16} color={T.textMute as string} />
+                </GlassCard>
+              ))}
+            </Box>
+          </Box>
+        )}
+      </Box>
+    </Box>
   );
 };
 
-// silence TS unused import
-import type { AnalysisResult } from "@/types";
 export default Home;

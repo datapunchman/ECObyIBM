@@ -46,7 +46,7 @@ const RiskCard: React.FC<RiskCardProps> = ({
             bgcolor: cfg.border,
             color: "#fff",
             fontWeight: 700,
-            fontSize: "0.7rem",
+            fontSize: "0.9rem",
             letterSpacing: "0.06em",
             borderRadius: 1,
           }}

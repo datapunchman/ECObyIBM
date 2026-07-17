@@ -57,6 +57,10 @@ export interface V2ImpactedAsset {
   bucket: string;
   discovered_by: string;
   confidence: number;
+  /** Phase 7 — "upstream" (producer) or "downstream" (consumer). */
+  impact_direction?: "upstream" | "downstream";
+  /** Phase 7 — BFS hop count from the source in the tagged direction. */
+  traversal_depth?: number;
 }
 
 /** Deterministic metrics computed by the graph traversal (no LLM). */
@@ -67,9 +71,12 @@ export interface V2GraphMetrics {
   systems_impacted: number;
   buckets_impacted: number;
   leaf_assets: number;
+  /** Phase 7 — per-direction counts. */
+  upstream_assets?: number;
+  downstream_assets?: number;
 }
 
-/** The 19 enterprise buckets + metrics + dependency paths. */
+/** The enterprise buckets + metrics + dependency paths. */
 export interface V2GraphAnalysis {
   database_tables:      V2ImpactedAsset[];
   views:                V2ImpactedAsset[];
@@ -84,6 +91,8 @@ export interface V2GraphAnalysis {
   data_factory:         V2ImpactedAsset[];
   airflow:              V2ImpactedAsset[];
   fabric_pipelines:     V2ImpactedAsset[];
+  /** Phase 7 — ADLS landing-zone files (previously external_consumers). */
+  adls_files:           V2ImpactedAsset[];
   semantic_models:      V2ImpactedAsset[];
   powerbi_reports:      V2ImpactedAsset[];
   dashboards:           V2ImpactedAsset[];

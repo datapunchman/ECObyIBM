@@ -590,6 +590,10 @@ class EnterpriseChangeAnalyzer:
 
         # Step 2 — resolve the source asset
         source_asset = self._resolve_asset(parsed)
+        logger.info(
+            "analyze: resolver returned — asset=%r",
+            source_asset.id if source_asset else None,
+        )
 
         # FIX 1 — change_type correction after asset resolution.
         # The parser classifies "Delete CustomerID" as TABLE_DELETE because there
@@ -598,32 +602,89 @@ class EnterpriseChangeAnalyzer:
         if source_asset is not None:
             parsed = _correct_change_type(parsed, source_asset)
 
+        logger.info(
+            "analyze: candidate disambiguation complete — type=%s target=%r",
+            parsed.change_type.value,
+            parsed.target_name,
+        )
+
         if source_asset is None:
             logger.info(
                 "No matching asset found for target=%r — returning empty analysis",
                 parsed.target_name,
             )
 
-        # Step 3 — graph traversal (skipped when no source asset was found)
-        if source_asset is not None:
-            downstream   = self._query.find_downstream(source_asset.id)
-            paths        = self._query.find_dependency_paths(source_asset.id)
-            full_impact  = self._query.find_full_impact(source_asset.id)
-            # Remove the bookkeeping "source" key; keep only system buckets
-            system_breakdown = {
-                k: v for k, v in full_impact.items() if k != "source"
-            }
-        else:
-            downstream       = []
-            paths            = []
-            system_breakdown = {s.value: [] for s in SystemType}
+        logger.info(
+            "analyze: selected asset — %s",
+            f"{source_asset.id} ({source_asset.asset_type.value}, {source_asset.system.value})"
+            if source_asset
+            else "None",
+        )
 
-        # Step 4 — Phase-6 typed bucket classification
-        buckets = _classify_into_buckets(downstream)
+        # Step 3 — graph traversal (skipped when no source asset was found)
+        #
+        # Phase 7 — BIDIRECTIONAL impact: enterprise impact analysis must
+        # cover upstream producers (notebooks/pipelines/delta tables that
+        # create or populate the asset) as well as downstream consumers
+        # (views/measures/reports that read it) — the behaviour of Purview,
+        # Unity Catalog, Collibra, and Manta.  Both directions are merged
+        # into `impacted` (downstream first, then upstream-only additions,
+        # no duplicates) with per-asset direction and depth metadata.
+        logger.info(
+            "analyze: starting graph traversal for asset=%r",
+            source_asset.id if source_asset else None,
+        )
+        if source_asset is not None:
+            downstream_d = self._query.find_downstream_with_depth(source_asset.id)
+            upstream_d   = self._query.find_upstream_with_depth(source_asset.id)
+            downstream   = [a for a, _ in downstream_d]
+            upstream     = [a for a, _ in upstream_d]
+
+            # Merge: downstream wins the direction tag when reachable both ways
+            # (consumer impact dominates), and its depth is the tagged depth.
+            impact_direction: Dict[str, str] = {}
+            traversal_depth:  Dict[str, int] = {}
+            impacted: List[Asset] = []
+            for asset, d in downstream_d:
+                impact_direction[asset.id] = "downstream"
+                traversal_depth[asset.id]  = d
+                impacted.append(asset)
+            for asset, d in upstream_d:
+                if asset.id not in impact_direction:  # no duplicates
+                    impact_direction[asset.id] = "upstream"
+                    traversal_depth[asset.id]  = d
+                    impacted.append(asset)
+
+            paths = self._query.find_dependency_paths(source_asset.id)
+            # System breakdown over the MERGED impact set (all SystemType
+            # keys always present, matching the previous contract).
+            system_breakdown = {s.value: [] for s in SystemType}
+            for asset in impacted:
+                system_breakdown[asset.system.value].append(asset)
+        else:
+            downstream        = []
+            upstream          = []
+            impacted          = []
+            impact_direction  = {}
+            traversal_depth   = {}
+            paths             = []
+            system_breakdown  = {s.value: [] for s in SystemType}
+
+        logger.info(
+            "analyze: graph traversal complete — %d downstream, %d upstream, "
+            "%d merged, %d dependency paths",
+            len(downstream),
+            len(upstream),
+            len(impacted),
+            len(paths),
+        )
+
+        # Step 4 — Phase-6 typed bucket classification (over the merged set)
+        buckets = _classify_into_buckets(impacted)
 
         # Step 5 — systems_impacted: distinct system values in impact set
         systems_impacted: List[str] = sorted(
-            {a.system.value for a in downstream}
+            {a.system.value for a in impacted}
         )
 
         # Step 6 — build legacy summary
@@ -637,11 +698,17 @@ class EnterpriseChangeAnalyzer:
         validation_checklist = _build_validation_checklist(buckets)
         rollback_plan        = _build_rollback_plan(parsed, source_asset, buckets)
 
+        logger.info(
+            "analyze: returning EnterpriseChangeAnalysis — impact_count=%d, systems=%s",
+            len(impacted),
+            systems_impacted,
+        )
+
         return EnterpriseChangeAnalysis(
             change_request=parsed,
             source_asset=source_asset,
-            impact_count=len(downstream),
-            impacted_assets=downstream,
+            impact_count=len(impacted),
+            impacted_assets=impacted,
             system_breakdown=system_breakdown,
             dependency_paths=paths,
             summary=summary,
@@ -661,6 +728,11 @@ class EnterpriseChangeAnalyzer:
             deployment_plan=deployment_plan,
             validation_checklist=validation_checklist,
             rollback_plan=rollback_plan,
+            # Phase-7 bidirectional impact
+            upstream_assets=upstream,
+            downstream_assets=downstream,
+            impact_direction=impact_direction,
+            traversal_depth=traversal_depth,
         )
 
     # ------------------------------------------------------------------

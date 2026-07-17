@@ -266,14 +266,23 @@ class ChangeAnalyzer:
 
         # Step 1 — fetch enterprise graph from Metadata Engine
         enterprise_graph = self._metadata_client.fetch_enterprise_graph()
+        logger.info(
+            "analyze_change_v2: enterprise graph fetched — %d assets",
+            len(enterprise_graph.assets),
+        )
 
         # Step 2 — build a fresh EnterpriseChangeAnalyzer with the live graph
         #           (it requires the graph at construction, not as a method arg)
         change_analyzer = EnterpriseChangeAnalyzer(graph=enterprise_graph)
         change_analysis = change_analyzer.analyze(analysis_request.request)
+        logger.info(
+            "analyze_change_v2: change analysis complete — impact_count=%d",
+            change_analysis.impact_count,
+        )
 
         # Step 3 — map into 19 enterprise buckets with provenance
         graph_result = self._graph_orchestrator.orchestrate(change_analysis)
+        logger.info("analyze_change_v2: graph orchestration complete")
 
         # Step 4 — graph-grounded prompt (Granite reasons, never discovers)
         prompt_text = self._prompt_builder.build_from_graph(
@@ -281,7 +290,15 @@ class ChangeAnalyzer:
         )
 
         # Step 5 — Granite reasoning call
+        logger.info(
+            "analyze_change_v2: calling Granite (%d prompt chars)…",
+            len(prompt_text),
+        )
         raw_text = self._call_granite(prompt_text)
+        logger.info(
+            "analyze_change_v2: Granite responded (%d chars)",
+            len(raw_text),
+        )
 
         # Step 6 — collect empty buckets for the hallucination scrubber
         empty_buckets: set = {
@@ -318,6 +335,7 @@ class ChangeAnalyzer:
             graph_result.metrics.get("total_assets", 0),
             llm_summary.get("risk_level", "unknown"),
         )
+        logger.info("analyze_change_v2: returning API response")
         return result
 
     def build_prompt_only(

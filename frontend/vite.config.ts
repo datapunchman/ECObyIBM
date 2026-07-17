@@ -10,7 +10,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: Number(process.env.PORT) || 3000,
     proxy: {
       "/analyze": {
         target: "http://127.0.0.1:8001",

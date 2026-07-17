@@ -721,8 +721,10 @@ class TestOrchestratorBucketMapping:
     def test_pipeline_task_maps_to_pipelines(self):
         assert _ASSET_TYPE_TO_BUCKET.get(AssetType.PIPELINE_TASK.value) == "pipelines"
 
-    def test_adls_file_maps_to_external_consumers(self):
-        assert _ASSET_TYPE_TO_BUCKET.get(AssetType.ADLS_FILE.value) == "external_consumers"
+    def test_adls_file_maps_to_adls_files(self):
+        # Phase 7: ADLS files are lineage assets (landing zone), routed to
+        # their own bucket instead of external_consumers.
+        assert _ASSET_TYPE_TO_BUCKET.get(AssetType.ADLS_FILE.value) == "adls_files"
 
     def test_report_maps_to_powerbi_reports(self):
         assert _ASSET_TYPE_TO_BUCKET.get(AssetType.REPORT.value) == "powerbi_reports"

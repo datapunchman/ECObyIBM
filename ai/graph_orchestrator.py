@@ -80,7 +80,7 @@ _ASSET_TYPE_TO_BUCKET: Dict[str, str] = {
     AssetType.UNITY_CATALOG_OBJECT.value: "unity_catalog",
 
     # ── Storage ─────────────────────────────────────────────────────────────
-    AssetType.ADLS_FILE.value:           "external_consumers",
+    AssetType.ADLS_FILE.value:           "adls_files",
 
     # ── Orchestration / Pipelines ──────────────────────────────────────────
     AssetType.PIPELINE.value:            "pipelines",
@@ -107,7 +107,10 @@ _ASSET_TYPE_TO_BUCKET: Dict[str, str] = {
     AssetType.POWERBI_DASHBOARD.value:   "dashboards",
 }
 
-# Complete ordered list of all 19 enterprise buckets — always present in output.
+# Complete ordered list of enterprise buckets — always present in output.
+# "adls_files" added in Phase 7 (bidirectional impact): ADLS files are real
+# lineage assets (landing zone), not external consumers.  All 19 original
+# buckets are preserved for backward compatibility.
 ENTERPRISE_BUCKETS: List[str] = [
     "database_tables",
     "views",
@@ -122,6 +125,7 @@ ENTERPRISE_BUCKETS: List[str] = [
     "data_factory",
     "airflow",
     "fabric_pipelines",
+    "adls_files",
     "semantic_models",
     "powerbi_reports",
     "dashboards",
@@ -150,7 +154,7 @@ _CRITICAL_TYPES: frozenset[str] = frozenset({
 
 @dataclass
 class ImpactedAsset:
-    """A single downstream asset with provenance metadata.
+    """A single impacted asset with provenance metadata.
 
     Every field is deterministic — no AI inference.
 
@@ -162,6 +166,14 @@ class ImpactedAsset:
     bucket:         Enterprise bucket this asset belongs to.
     discovered_by:  Always ``"enterprise_graph"`` — never ``"llm"``.
     confidence:     Always ``1.0`` — graph traversal is deterministic.
+    impact_direction:
+                    ``"upstream"`` (producer that creates/populates the
+                    source) or ``"downstream"`` (consumer that depends on
+                    it).  Assets reachable both ways are tagged
+                    ``"downstream"``.
+    traversal_depth:
+                    BFS hop count from the source asset in the tagged
+                    direction (first neighbours = 1).
     """
 
     asset: Asset
@@ -170,6 +182,8 @@ class ImpactedAsset:
     bucket: str
     discovered_by: str = "enterprise_graph"
     confidence: float = 1.0
+    impact_direction: str = "downstream"
+    traversal_depth: int = 0
 
     def to_dict(self) -> Dict:
         return {
@@ -180,6 +194,8 @@ class ImpactedAsset:
             "bucket": self.bucket,
             "discovered_by": self.discovered_by,
             "confidence": self.confidence,
+            "impact_direction": self.impact_direction,
+            "traversal_depth": self.traversal_depth,
         }
 
 
@@ -204,6 +220,8 @@ class GraphMetrics:
     systems_impacted: int = 0
     buckets_impacted: int = 0
     leaf_assets: int = 0
+    upstream_assets: int = 0
+    downstream_assets: int = 0
 
     def to_dict(self) -> Dict:
         return {
@@ -213,6 +231,8 @@ class GraphMetrics:
             "systems_impacted": self.systems_impacted,
             "buckets_impacted": self.buckets_impacted,
             "leaf_assets": self.leaf_assets,
+            "upstream_assets": self.upstream_assets,
+            "downstream_assets": self.downstream_assets,
         }
 
 
@@ -283,7 +303,11 @@ class GraphOrchestrator:
             Deterministic, graph-sourced impact data.  Ready for the prompt
             builder.  No AI calls are made.
         """
-        impacted_assets = self._classify_assets(change_analysis.impacted_assets)
+        impacted_assets = self._classify_assets(
+            change_analysis.impacted_assets,
+            impact_direction=change_analysis.impact_direction,
+            traversal_depth=change_analysis.traversal_depth,
+        )
         buckets = self._fill_buckets(impacted_assets)
         metrics = self._compute_metrics(
             impacted_assets=impacted_assets,
@@ -314,8 +338,19 @@ class GraphOrchestrator:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _classify_assets(assets: List[Asset]) -> List[ImpactedAsset]:
-        """Wrap every Asset in an ImpactedAsset with its bucket assignment."""
+    def _classify_assets(
+        assets: List[Asset],
+        impact_direction: Optional[Dict[str, str]] = None,
+        traversal_depth: Optional[Dict[str, int]] = None,
+    ) -> List[ImpactedAsset]:
+        """Wrap every Asset in an ImpactedAsset with its bucket assignment.
+
+        Direction/depth maps come from the Phase-7 bidirectional traversal;
+        absent entries default to "downstream" / 0 for backward
+        compatibility with pre-Phase-7 analyses.
+        """
+        direction = impact_direction or {}
+        depth = traversal_depth or {}
         result: List[ImpactedAsset] = []
         for asset in assets:
             asset_type = asset.asset_type.value
@@ -326,6 +361,8 @@ class GraphOrchestrator:
                     type=asset_type,
                     system=asset.system.value,
                     bucket=bucket,
+                    impact_direction=direction.get(asset.id, "downstream"),
+                    traversal_depth=depth.get(asset.id, 0),
                 )
             )
         return result
@@ -371,4 +408,6 @@ class GraphOrchestrator:
             systems_impacted=systems,
             buckets_impacted=non_empty_buckets,
             leaf_assets=leaf_count,
+            upstream_assets=sum(1 for a in impacted_assets if a.impact_direction == "upstream"),
+            downstream_assets=sum(1 for a in impacted_assets if a.impact_direction == "downstream"),
         )

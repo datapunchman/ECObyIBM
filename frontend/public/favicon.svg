@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- ECO mark v2 "Impact Lattice" — favicon (dark tile, works at 16px) -->
+  <rect width="64" height="64" rx="14" fill="#09090B"/>
+  <path d="M 17 16 L 17 48" stroke="#0F62FE" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="17" y1="16" x2="41" y2="16" stroke="#0F62FE" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="17" y1="32" x2="52" y2="32" stroke="#0F62FE" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="17" y1="48" x2="41" y2="48" stroke="#0F62FE" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="41" y1="16" x2="52" y2="32" stroke="#0F62FE" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="41" y1="48" x2="52" y2="32" stroke="#0F62FE" stroke-width="4.6" stroke-linecap="round"/>
+  <circle cx="17" cy="16" r="3.1" fill="#0F62FE"/>
+  <circle cx="17" cy="32" r="3.1" fill="#0F62FE"/>
+  <circle cx="17" cy="48" r="3.1" fill="#0F62FE"/>
+  <circle cx="41" cy="16" r="3.1" fill="#0F62FE"/>
+  <circle cx="41" cy="48" r="3.1" fill="#0F62FE"/>
+  <circle cx="52" cy="32" r="4.1" fill="#4DA3FF"/>
+</svg>

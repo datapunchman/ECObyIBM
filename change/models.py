@@ -180,3 +180,24 @@ class EnterpriseChangeAnalysis:
     deployment_plan:       List[str]        = field(default_factory=list)
     validation_checklist:  List[str]        = field(default_factory=list)
     rollback_plan:         List[str]        = field(default_factory=list)
+
+    # ── Phase 7: bidirectional impact (upstream producers + downstream
+    #    consumers, à la Purview / Unity Catalog / Collibra / Manta) ──────
+    #
+    # impacted_assets above remains the MERGED set (downstream first,
+    # then upstream-only additions — no duplicates) for backward
+    # compatibility with every existing consumer.
+    #
+    # upstream_assets / downstream_assets:
+    #     The raw per-direction result lists (BFS order, source excluded).
+    #     An asset reachable in BOTH directions appears in both lists but
+    #     only once in impacted_assets (direction tagged "downstream").
+    # impact_direction:
+    #     asset id → "upstream" | "downstream".  Assets reachable both
+    #     ways are tagged "downstream" (consumer impact dominates).
+    # traversal_depth:
+    #     asset id → BFS hop count from the source in its tagged direction.
+    upstream_assets:       List[Asset]      = field(default_factory=list)
+    downstream_assets:     List[Asset]      = field(default_factory=list)
+    impact_direction:      Dict[str, str]   = field(default_factory=dict)
+    traversal_depth:       Dict[str, int]   = field(default_factory=dict)
